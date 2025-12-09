@@ -1,0 +1,104 @@
+{
+  "name": "demand-radar",
+  "displayName": "Demand Radar",
+  "version": "1.0.0",
+  "description": "Extract product opportunity insights from user discussions on Reddit and Zhihu",
+  "author": "Demand Radar Team",
+  "scripts": {
+    "dev": "plasmo dev",
+    "build": "plasmo build",
+    "package": "plasmo package",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
+    "type-check": "tsc --noEmit",
+    "prepare-": "husky"
+  },
+  "dependencies": {
+    "@langchain/core": "^0.3.37",
+    "@langchain/openai": "^0.3.17",
+    "@langchain/google-genai": "^0.1.9",
+    "@mozilla/readability": "^0.5.0",
+    "@plasmohq/messaging": "^0.7.0",
+    "@plasmohq/storage": "^1.13.0",
+    "dexie": "^4.0.10",
+    "dompurify": "^3.2.2",
+    "plasmo": "^0.89.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "turndown": "^7.2.0",
+    "zod": "^3.24.1",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "@ianvs/prettier-plugin-sort-imports": "^4.4.0",
+    "@types/chrome": "^0.0.287",
+    "@types/dompurify": "^3.0.5",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/turndown": "^5.0.5",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.16.0",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "globals": "^15.14.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.11",
+    "postcss": "^8.4.49",
+    "prettier": "^3.4.2",
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{css,json,md}": [
+      "prettier --write"
+    ]
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "@swc/core",
+      "esbuild",
+      "lmdb",
+      "msgpackr-extract",
+      "sharp"
+    ]
+  },
+  "manifest": {
+    "host_permissions": [
+      "https://*.reddit.com/*",
+      "https://*.zhihu.com/*"
+    ],
+    "optional_host_permissions": [
+      "https://*/*",
+      "http://*/*"
+    ],
+    "permissions": [
+      "activeTab",
+      "storage",
+      "scripting",
+      "sidePanel",
+      "alarms",
+      "notifications",
+      "tabs"
+    ],
+    "side_panel": {
+      "default_path": "sidepanel.html"
+    },
+    "action": {
+      "default_title": "Demand Radar"
+    }
+  }
+}

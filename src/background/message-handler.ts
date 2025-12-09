@@ -22,6 +22,7 @@ import {
 import type { Extraction } from "@/shared/types/extraction";
 import type { Demand, DemandInput } from "@/shared/types/demand";
 import type { LLMConfig } from "@/shared/types/config";
+import type { ExtractionResult } from "@/content/adapters/base";
 import { ERROR_CODES } from "@/shared/constants";
 import { generateId, truncateText } from "@/shared/utils/text-utils";
 
@@ -127,8 +128,8 @@ export class MessageHandler {
     }
 
     // 检查 LLM 配置
-    const config = await configRepo.get();
-    if (!config?.llmConfig?.apiKey) {
+    const config = await configRepo.getAppConfig();
+    if (!config.llm?.apiKey) {
       this.broadcastToPanel({
         type: MessageType.ANALYSIS_ERROR,
         payload: {
@@ -141,7 +142,7 @@ export class MessageHandler {
     }
 
     // 配置 LLM 服务
-    llmService.setConfig(config.llmConfig);
+    llmService.setConfig(config.llm);
 
     // 通知开始分析
     this.broadcastToPanel({
@@ -158,7 +159,7 @@ export class MessageHandler {
         throw new Error(extractionResult.error || "Content extraction failed");
       }
 
-      const extraction = extractionResult.data;
+      const extraction = extractionResult.data as ExtractionResult;
       const contentText = extraction.content.body;
 
       // 2. 检查存储容量
@@ -254,7 +255,7 @@ export class MessageHandler {
         throw new Error(extractionResult.error || "Content extraction failed");
       }
 
-      const extraction = extractionResult.data;
+      const extraction = extractionResult.data as ExtractionResult;
       const contentText = extraction.content.body;
 
       // 检查存储容量
@@ -337,7 +338,7 @@ export class MessageHandler {
    * 获取配置
    */
   private async handleGetConfig(): Promise<MessageResponse> {
-    const config = await configRepo.get();
+    const config = await configRepo.getAppConfig();
     return { success: true, data: config };
   }
 
@@ -496,7 +497,7 @@ export class MessageHandler {
   private async handleExportData(): Promise<MessageResponse> {
     const extractions = await extractionRepo.getAll();
     const demands = await demandRepo.getAll();
-    const config = await configRepo.get();
+    const config = await configRepo.getAppConfig();
 
     const exportData = {
       version: "1.0",
@@ -504,12 +505,10 @@ export class MessageHandler {
       extractions,
       demands,
       // 不导出 API Key
-      config: config
-        ? {
-            siteWhitelist: config.siteWhitelist,
-            siteBlacklist: config.siteBlacklist,
-          }
-        : null,
+      config: {
+        siteWhitelist: config.siteFilter.whitelist,
+        siteBlacklist: config.siteFilter.blacklist,
+      },
     };
 
     return { success: true, data: exportData };

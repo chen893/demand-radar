@@ -22,7 +22,7 @@ function getPageInfo(): PageInfoPayload {
     url,
     title,
     platform,
-    canAnalyze: platform !== "unsupported",
+    canAnalyze: true, // 所有平台都可以分析
     needsAuthorization: platform === "generic",
   };
 }

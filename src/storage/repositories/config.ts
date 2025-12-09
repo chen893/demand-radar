@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db } from "../db";
 import type {
   AppConfig,
   LLMConfig,
@@ -165,6 +165,19 @@ export class ConfigRepository {
   async isLLMConfigured(): Promise<boolean> {
     const config = await this.getLLMConfig();
     return config !== null && config.apiKey.length > 0;
+  }
+
+  /**
+   * 初始化默认配置（首次安装时调用）
+   */
+  async initDefault(): Promise<void> {
+    const existingConfig = await this.getLLMConfig();
+    if (existingConfig === null) {
+      // 仅设置站点过滤默认值
+      await this.setSiteFilter(DEFAULT_SITE_FILTER);
+      await this.setFirstLaunchCompleted(false);
+      await this.setAnalyticsEnabled(true);
+    }
   }
 }
 

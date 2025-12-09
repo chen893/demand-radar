@@ -1,199 +1,260 @@
 /**
- * 配置状态管理
- * 管理 LLM 配置和应用设置
+ * 站点过滤器
+ * 管理白名单/黑名单，决定是否允许在特定页面上进行分析
  */
 
-import { create } from "zustand";
-import type { LLMConfig, AppConfig } from "@/shared/types/config";
-import type { StorageUsage } from "@/storage/capacity-manager";
-import { MessageType } from "@/shared/types/messages";
-import { PROVIDER_PRESETS } from "@/shared/constants";
-
-interface ConfigState {
-  // 配置状态
-  llmConfig: LLMConfig | null;
-  siteWhitelist: string[];
-  siteBlacklist: string[];
-  isConfigured: boolean;
-  isLoading: boolean;
-  error: string | null;
-
-  // 存储使用
-  storageUsage: StorageUsage | null;
-
-  // 连接测试
-  isTesting: boolean;
-  testResult: "success" | "error" | null;
-
-  // 操作
-  fetchConfig: () => Promise<void>;
-  setLLMConfig: (config: LLMConfig) => Promise<void>;
-  testConnection: (config: LLMConfig) => Promise<boolean>;
-  fetchStorageUsage: () => Promise<void>;
-  addToWhitelist: (site: string) => Promise<void>;
-  removeFromWhitelist: (site: string) => Promise<void>;
-  clearError: () => void;
-  clearTestResult: () => void;
+/**
+ * 站点匹配规则
+ */
+interface SiteRule {
+  pattern: string;
+  type: "whitelist" | "blacklist";
 }
 
-export const useConfigStore = create<ConfigState>((set, get) => ({
-  // 初始状态
-  llmConfig: null,
-  siteWhitelist: [],
-  siteBlacklist: [],
-  isConfigured: false,
-  isLoading: false,
-  error: null,
-  storageUsage: null,
-  isTesting: false,
-  testResult: null,
+/**
+ * 默认白名单（允许分析的站点）
+ */
+const DEFAULT_WHITELIST: string[] = [
+  "*.reddit.com",
+  "*.zhihu.com",
+];
 
-  // 获取配置
-  fetchConfig: async () => {
-    set({ isLoading: true, error: null });
+/**
+ * 默认黑名单（禁止分析的站点）
+ */
+const DEFAULT_BLACKLIST: string[] = [
+  // 敏感站点
+  "*.bank.*",
+  "*.banking.*",
+  "*bank.com",
+  "*bank.cn",
+  // 邮箱
+  "mail.*",
+  "*.mail.*",
+  "webmail.*",
+  "outlook.*",
+  "gmail.com",
+  // 政府/官方
+  "*.gov.*",
+  "*.gov",
+  // 登录页面
+  "*/login*",
+  "*/signin*",
+  "*/auth*",
+  // 支付页面
+  "*/checkout*",
+  "*/payment*",
+  "*/pay*",
+  // 账户管理
+  "*/account*",
+  "*/settings*",
+  "*/profile*",
+];
 
-    try {
-      const response = await chrome.runtime.sendMessage({
-        type: MessageType.GET_CONFIG,
-      });
+/**
+ * 站点过滤器类
+ */
+export class SiteFilter {
+  private whitelist: string[];
+  private blacklist: string[];
+  private customWhitelist: string[] = [];
 
-      if (response.success && response.data) {
-        const config = response.data as AppConfig;
-        set({
-          llmConfig: config.llmConfig,
-          siteWhitelist: config.siteWhitelist,
-          siteBlacklist: config.siteBlacklist,
-          isConfigured: !!config.llmConfig?.apiKey,
-          isLoading: false,
-        });
-      } else {
-        // 无配置，使用默认值
-        set({
-          llmConfig: null,
-          siteWhitelist: ["*.reddit.com", "*.zhihu.com"],
-          siteBlacklist: ["*.bank.*", "mail.*", "*.gov.*"],
-          isConfigured: false,
-          isLoading: false,
-        });
-      }
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : "获取配置失败",
-        isLoading: false,
-      });
+  constructor(
+    whitelist: string[] = DEFAULT_WHITELIST,
+    blacklist: string[] = DEFAULT_BLACKLIST
+  ) {
+    this.whitelist = whitelist;
+    this.blacklist = blacklist;
+  }
+
+  /**
+   * 设置配置
+   */
+  setConfig(whitelist: string[], blacklist: string[]): void {
+    this.whitelist = whitelist;
+    this.blacklist = blacklist;
+  }
+
+  /**
+   * 添加自定义白名单（用户授权的通用网页）
+   */
+  addCustomWhitelist(pattern: string): void {
+    if (!this.customWhitelist.includes(pattern)) {
+      this.customWhitelist.push(pattern);
     }
-  },
+  }
 
-  // 设置 LLM 配置
-  setLLMConfig: async (config) => {
+  /**
+   * 移除自定义白名单
+   */
+  removeCustomWhitelist(pattern: string): void {
+    this.customWhitelist = this.customWhitelist.filter((p) => p !== pattern);
+  }
+
+  /**
+   * 获取自定义白名单
+   */
+  getCustomWhitelist(): string[] {
+    return [...this.customWhitelist];
+  }
+
+  /**
+   * 检查 URL 是否允许分析
+   */
+  isAllowed(url: string): { allowed: boolean; reason?: string } {
     try {
-      const response = await chrome.runtime.sendMessage({
-        type: MessageType.UPDATE_CONFIG,
-        payload: config,
-      });
+      const urlObj = new URL(url);
+      const fullUrl = urlObj.href;
+      const hostname = urlObj.hostname;
 
-      if (response.success) {
-        set({
-          llmConfig: config,
-          isConfigured: !!config.apiKey,
-        });
-      } else {
-        set({ error: response.error || "保存配置失败" });
+      // 1. 首先检查黑名单（黑名单优先级最高）
+      if (this.matchPatterns(fullUrl, hostname, this.blacklist)) {
+        return {
+          allowed: false,
+          reason: "此页面被安全策略禁止分析",
+        };
       }
+
+      // 2. 检查默认白名单
+      if (this.matchPatterns(fullUrl, hostname, this.whitelist)) {
+        return { allowed: true };
+      }
+
+      // 3. 检查自定义白名单（用户授权的通用网页）
+      if (this.matchPatterns(fullUrl, hostname, this.customWhitelist)) {
+        return { allowed: true };
+      }
+
+      // 4. 默认不允许（需要用户授权）
+      return {
+        allowed: false,
+        reason: "此网站需要您的授权才能分析",
+      };
     } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : "保存配置失败",
-      });
+      return {
+        allowed: false,
+        reason: "无效的 URL",
+      };
     }
-  },
+  }
 
-  // 测试连接
-  testConnection: async (config) => {
-    set({ isTesting: true, testResult: null, error: null });
-
+  /**
+   * 检查是否为已知平台（Reddit/知乎）
+   */
+  isKnownPlatform(url: string): boolean {
     try {
-      const response = await chrome.runtime.sendMessage({
-        type: MessageType.TEST_LLM_CONNECTION,
-        payload: config,
-      });
-
-      const success = response.success;
-      set({
-        isTesting: false,
-        testResult: success ? "success" : "error",
-      });
-      return success;
-    } catch (error) {
-      set({
-        isTesting: false,
-        testResult: "error",
-        error: error instanceof Error ? error.message : "连接测试失败",
-      });
+      const hostname = new URL(url).hostname;
+      return (
+        hostname.includes("reddit.com") || hostname.includes("zhihu.com")
+      );
+    } catch {
       return false;
     }
-  },
+  }
 
-  // 获取存储使用情况
-  fetchStorageUsage: async () => {
-    try {
-      const response = await chrome.runtime.sendMessage({
-        type: MessageType.GET_STORAGE_USAGE,
-      });
-
-      if (response.success) {
-        set({ storageUsage: response.data });
-      }
-    } catch (error) {
-      console.error("Failed to fetch storage usage:", error);
+  /**
+   * 检查是否需要用户授权（通用网页）
+   */
+  needsAuthorization(url: string): boolean {
+    if (this.isKnownPlatform(url)) {
+      return false;
     }
-  },
 
-  // 添加到白名单
-  addToWhitelist: async (site) => {
-    const { siteWhitelist } = get();
-    if (siteWhitelist.includes(site)) return;
+    const result = this.isAllowed(url);
+    if (result.allowed) {
+      return false;
+    }
 
-    const newWhitelist = [...siteWhitelist, site];
-    set({ siteWhitelist: newWhitelist });
-    // TODO: 保存到存储
-  },
+    // 如果不在黑名单中，则需要授权
+    try {
+      const urlObj = new URL(url);
+      return !this.matchPatterns(urlObj.href, urlObj.hostname, this.blacklist);
+    } catch {
+      return false;
+    }
+  }
 
-  // 从白名单移除
-  removeFromWhitelist: async (site) => {
-    const { siteWhitelist } = get();
-    const newWhitelist = siteWhitelist.filter((s) => s !== site);
-    set({ siteWhitelist: newWhitelist });
-    // TODO: 保存到存储
-  },
+  /**
+   * 检查 URL 是否匹配模式列表
+   */
+  private matchPatterns(
+    fullUrl: string,
+    hostname: string,
+    patterns: string[]
+  ): boolean {
+    for (const pattern of patterns) {
+      if (this.matchPattern(fullUrl, hostname, pattern)) {
+        return true;
+      }
+    }
+    return false;
+  }
 
-  // 清除错误
-  clearError: () => {
-    set({ error: null });
-  },
+  /**
+   * 检查 URL 是否匹配单个模式
+   * 支持的模式：
+   * - *.domain.com - 匹配所有子域名
+   * - domain.com - 精确匹配域名
+   * - *keyword* - 匹配包含关键词的 URL
+   * - /path* - 匹配路径前缀
+   */
+  private matchPattern(
+    fullUrl: string,
+    hostname: string,
+    pattern: string
+  ): boolean {
+    // 路径模式（以 / 开头或包含 /）
+    if (pattern.startsWith("*/") || pattern.includes("/*")) {
+      const regex = this.patternToRegex(pattern);
+      return regex.test(fullUrl);
+    }
 
-  // 清除测试结果
-  clearTestResult: () => {
-    set({ testResult: null });
-  },
-}));
+    // 域名模式
+    const regex = this.patternToRegex(pattern);
+    return regex.test(hostname) || regex.test(fullUrl);
+  }
 
-/**
- * 获取服务商显示名称
- */
-export function getProviderDisplayName(provider: LLMConfig["provider"]): string {
-  return PROVIDER_PRESETS[provider]?.name || provider;
+  /**
+   * 将模式转换为正则表达式
+   */
+  private patternToRegex(pattern: string): RegExp {
+    // 转义特殊字符，但保留 *
+    let regexStr = pattern
+      .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/\*/g, ".*");
+
+    // 如果模式不包含通配符，则进行精确匹配
+    if (!pattern.includes("*")) {
+      regexStr = `^${regexStr}$`;
+    }
+
+    return new RegExp(regexStr, "i");
+  }
+
+  /**
+   * 获取当前配置
+   */
+  getConfig(): { whitelist: string[]; blacklist: string[] } {
+    return {
+      whitelist: [...this.whitelist],
+      blacklist: [...this.blacklist],
+    };
+  }
+
+  /**
+   * 重置为默认配置
+   */
+  resetToDefault(): void {
+    this.whitelist = [...DEFAULT_WHITELIST];
+    this.blacklist = [...DEFAULT_BLACKLIST];
+    this.customWhitelist = [];
+  }
 }
 
 /**
- * 获取服务商默认模型
+ * 站点过滤器单例
  */
-export function getProviderDefaultModel(provider: LLMConfig["provider"]): string {
-  return PROVIDER_PRESETS[provider]?.defaultModel || "";
-}
+export const siteFilter = new SiteFilter();
 
-/**
- * 获取服务商文档链接
- */
-export function getProviderDocUrl(provider: LLMConfig["provider"]): string {
-  return PROVIDER_PRESETS[provider]?.docUrl || "";
-}
+// 导出默认配置
+export { DEFAULT_WHITELIST, DEFAULT_BLACKLIST };

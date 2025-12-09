@@ -20,8 +20,8 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       url: chrome.runtime.getURL("options.html?welcome=true"),
     });
 
-    // 初始化默认配置
-    await configRepo.initDefault();
+    // 标记首次启动未完成（等待用户配置）
+    await configRepo.setFirstLaunchCompleted(false);
   } else if (details.reason === "update") {
     // 版本更新：检查是否需要迁移数据
     console.log(
@@ -38,9 +38,9 @@ chrome.runtime.onStartup.addListener(async () => {
   console.log("[Background] Extension started");
 
   // 从存储加载 LLM 配置
-  const config = await configRepo.get();
-  if (config?.llmConfig) {
-    llmService.setConfig(config.llmConfig);
+  const llmConfig = await configRepo.getLLMConfig();
+  if (llmConfig) {
+    llmService.setConfig(llmConfig);
   }
 });
 

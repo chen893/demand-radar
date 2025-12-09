@@ -120,7 +120,7 @@ export class LLMService {
       // 调用 LLM
       const result = await modelWithStructure.invoke(prompt);
 
-      return result;
+      return result as AnalysisResult;
     } catch (error) {
       throw this.handleError(error);
     }

@@ -1,0 +1,34 @@
+{
+  "name": "demand-radar",
+  "version": "1.0.0",
+  "description": "AI-powered solution discovery from user pain points",
+  "scripts": {
+    "dev": "plasmo dev",
+    "build": "plasmo build",
+    "package": "plasmo build --zip",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@langchain/core": "^0.3.79",
+    "@langchain/openai": "^0.3.17",
+    "@mozilla/readability": "^0.5.0",
+    "dexie": "^4.2.1",
+    "dompurify": "^3.3.1",
+    "flexsearch": "^0.7.43",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "turndown": "^7.2.2",
+    "zustand": "^4.5.7"
+  },
+  "devDependencies": {
+    "@types/dompurify": "^3.2.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/turndown": "^5.0.6",
+    "plasmo": "^0.90.0",
+    "typescript": "^5.0.0"
+  }
+}

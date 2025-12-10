@@ -57,6 +57,35 @@ export const DEDUPLICATION_PROMPT = `你是一个产品需求分析专家。请�
 - 核心差异点高度重叠`;
 
 /**
+ * v2.1 去重分析 Prompt（结构化输出）
+ */
+export const DEDUP_ANALYSIS_PROMPT = `
+你是一个产品需求分析专家。请分析以下产品方向列表，找出指向**同一产品机会**的相似方向。
+
+【输入】
+{demands}
+
+【判断标准】
+1. 解决同一个核心问题
+2. 目标用户群体相同或高度重叠
+3. 核心差异点有 2 个以上相同
+
+【输出要求】
+以 JSON 输出：
+{
+  "groups": [
+    {
+      "suggestedName": "分组名称",
+      "demandIds": ["id1", "id2"],
+      "reason": "归组理由",
+      "commonPainPoints": ["共同痛点1", "共同痛点2"]
+    }
+  ],
+  "uniqueDemands": ["id4", "id5"]
+}
+`;
+
+/**
  * 格式化 Prompt（替换占位符）
  */
 export function formatPrompt(

@@ -6,7 +6,12 @@ import { MessageType, type PageInfoPayload } from "@/shared/types/messages";
  * Plasmo Content Script 配置
  */
 export const config: PlasmoCSConfig = {
-  matches: ["https://*.reddit.com/*", "https://*.zhihu.com/*"],
+  matches: [
+    "https://*.reddit.com/*",
+    "https://*.zhihu.com/*",
+    "https://*.twitter.com/*",
+    "https://*.x.com/*",
+  ],
   run_at: "document_idle",
 };
 

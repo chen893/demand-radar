@@ -1,144 +1,284 @@
 /**
- * 分析状态管理
- * 管理当前页面分析的状态
+ * 分析状态管理（v2.1）
+ * 解耦「当前页面」与「分析任务」，支持多任务队列
  */
 
 import { create } from "zustand";
-import type {
-  AnalysisResultPayload,
-  PageInfoPayload,
-} from "@/shared/types/messages";
+import type { PageInfoPayload } from "@/shared/types/messages";
+import type { AnalysisTask, AnalysisTaskStatus } from "@/shared/types/analysis-task";
+import { generateId } from "@/shared/utils/text-utils";
 
-/**
- * 分析状态
- */
-type AnalysisStatus =
-  | "idle"
-  | "extracting"
-  | "analyzing"
-  | "completed"
-  | "error";
-
-interface DemandPreview {
-  id: string;
-  solution: {
-    title: string;
-    description: string;
-    targetUser: string;
-    keyDifferentiators: string[];
-  };
-  validation: {
-    painPoints: string[];
-    competitors: string[];
-    competitorGaps: string[];
-    quotes: string[];
-  };
-}
+const MAX_TASKS = 20;
 
 interface AnalysisState {
-  // 页面信息
-  pageInfo: PageInfoPayload | null;
+  // 当前页面（随 URL 变化更新）
+  currentPage: PageInfoPayload | null;
 
-  // 分析状态
-  status: AnalysisStatus;
-  error: string | null;
-  errorAction?: string;
+  // 任务队列
+  tasks: AnalysisTask[];
+  activeTaskId: string | null;
 
-  // 分析结果
-  extractionId: string | null;
-  summary: string | null;
-  demands: DemandPreview[];
+  // UI 状态
+  indicatorExpanded: boolean;
+
+  // 需求选中状态（针对当前查看的任务）
   selectedDemandIds: string[];
 
-  // 操作
-  setPageInfo: (info: PageInfoPayload | null) => void;
-  startAnalysis: () => void;
-  setExtracting: () => void;
-  setAnalyzing: () => void;
-  setAnalysisResult: (result: AnalysisResultPayload) => void;
-  setError: (error: string, action?: string) => void;
+  // 页面相关
+  setCurrentPage: (info: PageInfoPayload | null) => void;
+
+  // 任务相关
+  upsertTask: (task: AnalysisTask) => void;
+  createTask: (source: AnalysisTask["source"]) => string;
+  updateTaskStatus: (
+    taskId: string,
+    status: AnalysisTaskStatus,
+    data?: Partial<AnalysisTask>
+  ) => void;
+  setTaskResult: (taskId: string, result: AnalysisTask["result"]) => void;
+  setTaskError: (taskId: string, error: NonNullable<AnalysisTask["error"]>) => void;
+  retryTask: (taskId: string) => void;
+  cancelTask: (taskId: string) => void;
+  clearCompletedTasks: () => void;
+  viewTask: (taskId: string | null) => void;
+  getRunningTasks: () => AnalysisTask[];
+  getTaskForUrl: (url: string) => AnalysisTask | undefined;
+  toggleIndicator: () => void;
+
+  // 需求选择
   toggleDemandSelection: (id: string) => void;
   selectAllDemands: () => void;
   deselectAllDemands: () => void;
-  reset: () => void;
 }
 
 export const useAnalysisStore = create<AnalysisState>((set, get) => ({
-  // 初始状态
-  pageInfo: null,
-  status: "idle",
-  error: null,
-  errorAction: undefined,
-  extractionId: null,
-  summary: null,
-  demands: [],
+  currentPage: null,
+  tasks: [],
+  activeTaskId: null,
+  indicatorExpanded: false,
   selectedDemandIds: [],
 
-  // 设置页面信息
-  setPageInfo: (info) => {
-    console.log("info", info);
-    const currentInfo = get().pageInfo;
-    // URL 变化时重置分析状态
-    if (currentInfo?.url !== info?.url) {
-      set({
-        pageInfo: info,
-        status: "idle",
-        error: null,
-        errorAction: undefined,
-        extractionId: null,
-        summary: null,
-        demands: [],
-        selectedDemandIds: [],
-      });
-    } else {
-      set({ pageInfo: info });
+  setCurrentPage: (info) => {
+    set({ currentPage: info });
+
+    if (!info?.url) {
+      set({ activeTaskId: null, selectedDemandIds: [] });
+      return;
     }
+
+    const existingTask = get().tasks.find(
+      (t) => t.source.url === info.url && t.status === "completed"
+    );
+
+    set({
+      activeTaskId: existingTask?.id ?? null,
+      selectedDemandIds: existingTask?.result?.demands.map((d) => d.id) ?? [],
+    });
   },
 
-  // 开始分析
-  startAnalysis: () => {
-    set({
-      status: "extracting",
-      error: null,
-      errorAction: undefined,
-      extractionId: null,
-      summary: null,
-      demands: [],
+  upsertTask: (task) => {
+    set((state) => {
+      const exists = state.tasks.find((t) => t.id === task.id);
+      const nextTasks = exists
+        ? state.tasks.map((t) => (t.id === task.id ? task : t))
+        : [...state.tasks, task];
+
+      return {
+        tasks: nextTasks,
+      };
+    });
+  },
+
+  createTask: (source) => {
+    const id = generateId();
+    const now = new Date();
+
+    set((state) => {
+      const newTask: AnalysisTask = {
+        id,
+        source,
+        status: "pending",
+        progress: 0,
+        createdAt: now,
+      };
+      const nextTasks: AnalysisTask[] = [...state.tasks, newTask];
+
+      // 限制队列长度，优先移除最早完成的
+      let trimmedTasks = nextTasks;
+      if (nextTasks.length > MAX_TASKS) {
+        const completed = nextTasks.filter((t) => t.status === "completed");
+        if (completed.length > 0) {
+          const oldestCompleted = completed.reduce((prev, curr) =>
+            (prev.completedAt?.getTime() || 0) <= (curr.completedAt?.getTime() || 0)
+              ? prev
+              : curr
+          );
+          trimmedTasks = nextTasks.filter((t) => t.id !== oldestCompleted.id);
+        } else {
+          trimmedTasks = nextTasks.slice(-MAX_TASKS);
+        }
+      }
+
+      return {
+        tasks: trimmedTasks,
+        activeTaskId: id,
+        indicatorExpanded: true,
+        selectedDemandIds: [],
+      };
+    });
+
+    return id;
+  },
+
+  updateTaskStatus: (taskId, status, data) => {
+    set((state) => {
+      const exists = state.tasks.find((t) => t.id === taskId);
+      const baseTask: AnalysisTask =
+        exists ||
+        ({
+          id: taskId,
+          source: {
+            url: "",
+            title: "",
+            platform: "generic",
+          },
+          status: "pending",
+          createdAt: new Date(),
+        } as AnalysisTask);
+
+      const tasks = state.tasks.some((t) => t.id === taskId)
+        ? state.tasks.map((task) =>
+            task.id === taskId
+              ? {
+                  ...task,
+                  status,
+                  startedAt: task.startedAt ?? (status !== "pending" ? new Date() : task.startedAt),
+                  ...data,
+                }
+              : task
+          )
+        : [
+            ...state.tasks,
+            {
+              ...baseTask,
+              status,
+              ...data,
+            },
+          ];
+
+      return { tasks };
+    });
+  },
+
+  setTaskResult: (taskId, result) => {
+    set((state) => {
+      const updatedTasks = state.tasks.map((task) => {
+        if (task.id !== taskId) return task;
+        const completedTask: AnalysisTask = {
+          ...task,
+          status: "completed",
+          result,
+          progress: 100,
+          completedAt: new Date(),
+          error: undefined,
+        };
+        return completedTask;
+      });
+
+      return {
+        tasks: updatedTasks,
+        activeTaskId: taskId,
+        selectedDemandIds: result?.demands.map((d) => d.id) ?? [],
+        indicatorExpanded: true,
+      };
+    });
+  },
+
+  setTaskError: (taskId, error) => {
+    set((state) => ({
+      tasks: state.tasks.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              status: "error",
+              error,
+              progress: undefined,
+              completedAt: new Date(),
+            }
+          : task
+      ),
+    }));
+  },
+
+  retryTask: (taskId) => {
+    set((state) => ({
+      tasks: state.tasks.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              status: "pending",
+              progress: 0,
+              error: undefined,
+              startedAt: undefined,
+              completedAt: undefined,
+              result: undefined,
+            }
+          : task
+      ),
+      activeTaskId: taskId,
       selectedDemandIds: [],
-    });
+    }));
   },
 
-  // 设置提取中状态
-  setExtracting: () => {
-    set({ status: "extracting" });
+  cancelTask: (taskId) => {
+    set((state) => ({
+      tasks: state.tasks.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              status: "error",
+              error: {
+                code: "TASK_CANCELLED",
+                message: "任务已取消",
+                retryable: true,
+              },
+              completedAt: new Date(),
+            }
+          : task
+      ),
+    }));
   },
 
-  // 设置分析中状态
-  setAnalyzing: () => {
-    set({ status: "analyzing" });
+  clearCompletedTasks: () => {
+    set((state) => ({
+      tasks: state.tasks.filter((t) => t.status !== "completed"),
+      activeTaskId: null,
+      selectedDemandIds: [],
+    }));
   },
 
-  // 设置分析结果
-  setAnalysisResult: (result) => {
+  viewTask: (taskId) => {
+    const targetTask = taskId
+      ? get().tasks.find((t) => t.id === taskId)
+      : undefined;
+
     set({
-      status: "completed",
-      extractionId: result.extractionId,
-      summary: result.summary,
-      demands: result.demands,
-      selectedDemandIds: result.demands.map((d) => d.id), // 默认全选
+      activeTaskId: taskId,
+      selectedDemandIds: targetTask?.result?.demands.map((d) => d.id) ?? [],
     });
   },
 
-  // 设置错误
-  setError: (error, action) => {
-    set({
-      status: "error",
-      error,
-      errorAction: action,
-    });
+  getRunningTasks: () => {
+    const tasks = get().tasks;
+    return tasks.filter((t) =>
+      ["pending", "extracting", "analyzing"].includes(t.status)
+    );
   },
 
-  // 切换需求选中状态
+  getTaskForUrl: (url: string) => {
+    return get().tasks.find((t) => t.source.url === url);
+  },
+
   toggleDemandSelection: (id) => {
     set((state) => ({
       selectedDemandIds: state.selectedDemandIds.includes(id)
@@ -147,28 +287,18 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     }));
   },
 
-  // 全选需求
   selectAllDemands: () => {
-    set((state) => ({
-      selectedDemandIds: state.demands.map((d) => d.id),
-    }));
+    const activeTask = get().tasks.find((t) => t.id === get().activeTaskId);
+    set({
+      selectedDemandIds: activeTask?.result?.demands.map((d) => d.id) ?? [],
+    });
   },
 
-  // 取消全选
   deselectAllDemands: () => {
     set({ selectedDemandIds: [] });
   },
 
-  // 重置状态
-  reset: () => {
-    set({
-      status: "idle",
-      error: null,
-      errorAction: undefined,
-      extractionId: null,
-      summary: null,
-      demands: [],
-      selectedDemandIds: [],
-    });
+  toggleIndicator: () => {
+    set((state) => ({ indicatorExpanded: !state.indicatorExpanded }));
   },
 }));

@@ -42,6 +42,23 @@ export enum MessageType {
   // 页面状态
   GET_CURRENT_PAGE_INFO = "GET_CURRENT_PAGE_INFO",
   PAGE_INFO_UPDATED = "PAGE_INFO_UPDATED",
+
+  // ===== v2.1: 任务管理 =====
+  TASK_CREATED = "TASK_CREATED",
+  TASK_STATUS_UPDATED = "TASK_STATUS_UPDATED",
+  TASK_COMPLETED = "TASK_COMPLETED",
+  TASK_ERROR = "TASK_ERROR",
+  TASK_CANCELLED = "TASK_CANCELLED",
+
+  // 批量分析
+  BATCH_ANALYZE_START = "BATCH_ANALYZE_START",
+  BATCH_ANALYZE_PROGRESS = "BATCH_ANALYZE_PROGRESS",
+  BATCH_ANALYZE_COMPLETE = "BATCH_ANALYZE_COMPLETE",
+
+  // 需求去重
+  DEDUP_ANALYZE_START = "DEDUP_ANALYZE_START",
+  DEDUP_ANALYZE_COMPLETE = "DEDUP_ANALYZE_COMPLETE",
+  DEDUP_CONFIRM = "DEDUP_CONFIRM",
 }
 
 /**
@@ -99,7 +116,35 @@ export interface AnalysisErrorPayload {
 export interface PageInfoPayload {
   url: string;
   title: string;
-  platform: "reddit" | "zhihu" | "generic" | "unsupported";
+  platform: "reddit" | "zhihu" | "twitter" | "generic" | "unsupported";
   canAnalyze: boolean;
   needsAuthorization: boolean;
+}
+
+/**
+ * 任务状态更新消息载荷
+ */
+export interface TaskStatusUpdatePayload {
+  taskId: string;
+  status: "pending" | "extracting" | "analyzing" | "completed" | "error";
+  progress?: number;
+}
+
+/**
+ * 批量分析进度载荷
+ */
+export interface BatchAnalyzeProgressPayload {
+  total: number;
+  completed: number;
+  failed: number;
+  running: number;
+}
+
+/**
+ * 去重分析确认载荷
+ */
+export interface DedupConfirmPayload {
+  suggestedName: string;
+  demandIds: string[];
+  commonPainPoints?: string[];
 }

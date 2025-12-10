@@ -5,7 +5,9 @@
 
 import { create } from "zustand";
 import type { Demand } from "@/shared/types/demand";
+import type { DemandGroup } from "@/shared/types/demand-group";
 import { MessageType } from "@/shared/types/messages";
+import { demandGroupRepo } from "@/storage";
 
 interface DemandsState {
   // 列表状态
@@ -26,6 +28,10 @@ interface DemandsState {
   // 所有标签
   allTags: string[];
 
+  // 分组
+  groups: DemandGroup[];
+  lastDedupAt: Date | null;
+
   // 操作
   fetchDemands: () => Promise<void>;
   setSearchQuery: (query: string) => void;
@@ -40,6 +46,7 @@ interface DemandsState {
   removeTag: (id: string, tag: string) => Promise<void>;
   deleteDemand: (id: string) => Promise<void>;
   clearError: () => void;
+  fetchGroups: () => Promise<void>;
 }
 
 export const useDemandsStore = create<DemandsState>((set, get) => ({
@@ -54,6 +61,8 @@ export const useDemandsStore = create<DemandsState>((set, get) => ({
   selectedDemandId: null,
   selectedDemand: null,
   allTags: [],
+  groups: [],
+  lastDedupAt: null,
 
   // 获取需求列表
   fetchDemands: async () => {
@@ -300,6 +309,19 @@ export const useDemandsStore = create<DemandsState>((set, get) => ({
   // 清除错误
   clearError: () => {
     set({ error: null });
+  },
+
+  // 获取分组
+  fetchGroups: async () => {
+    try {
+      const groups = await demandGroupRepo.getAll();
+      set({
+        groups,
+        lastDedupAt: groups.length ? groups[0].updatedAt : null,
+      });
+    } catch (error) {
+      console.error("Failed to fetch demand groups:", error);
+    }
   },
 }));
 

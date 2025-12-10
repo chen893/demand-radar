@@ -2,6 +2,7 @@ import type { IPlatformAdapter, ExtractionResult } from "./base";
 import { RedditAdapter } from "./reddit";
 import { ZhihuAdapter } from "./zhihu";
 import { GenericAdapter } from "./generic";
+import { TwitterAdapter } from "./twitter";
 
 /**
  * 适配器注册中心
@@ -46,7 +47,7 @@ class AdapterRegistry {
   /**
    * 检测当前页面的平台类型
    */
-  detectPlatform(url: string): "reddit" | "zhihu" | "generic" {
+  detectPlatform(url: string): "reddit" | "zhihu" | "twitter" | "generic" {
     for (const adapter of this.adapters) {
       if (adapter.getPlatformName() !== "generic" && adapter.canHandle(url)) {
         return adapter.getPlatformName();
@@ -78,6 +79,7 @@ export const adapterRegistry = new AdapterRegistry();
 // 注册适配器（顺序决定优先级）
 adapterRegistry.register(new RedditAdapter());
 adapterRegistry.register(new ZhihuAdapter());
+adapterRegistry.register(new TwitterAdapter());
 adapterRegistry.register(new GenericAdapter());
 
 // 导出类型和基类

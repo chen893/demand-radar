@@ -69,7 +69,9 @@
   "manifest": {
     "host_permissions": [
       "https://*.reddit.com/*",
-      "https://*.zhihu.com/*"
+      "https://*.zhihu.com/*",
+      "https://*.twitter.com/*",
+      "https://*.x.com/*"
     ],
     "optional_host_permissions": [
       "https://*/*",

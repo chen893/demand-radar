@@ -177,6 +177,27 @@ export class DemandRepository {
   }
 
   /**
+   * 批量更新分组信息
+   */
+  async updateGroup(demandIds: string[], groupId: string, groupName: string): Promise<void> {
+    const updates = demandIds.map((id) =>
+      db.demands.update(id, {
+        groupId,
+        groupName,
+        updatedAt: new Date(),
+      })
+    );
+    await Promise.all(updates);
+  }
+
+  /**
+   * 根据分组获取需求
+   */
+  async getByGroupId(groupId: string): Promise<Demand[]> {
+    return db.demands.where("groupId").equals(groupId).toArray();
+  }
+
+  /**
    * 切换收藏状态
    */
   async toggleStarred(id: string): Promise<boolean> {

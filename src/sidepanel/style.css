@@ -1,47 +1,117 @@
 /* Import Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Poppins:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-html, body {
-  margin: 0;
-  padding: 0;
-  @apply bg-white text-brand-text overflow-hidden;
+/* Base Layer */
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    @apply bg-surface-50 text-slate-800 overflow-hidden antialiased;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Premium Typography */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', 'Montserrat', sans-serif;
+    @apply font-bold text-slate-900 tracking-tight;
+  }
 }
 
-body {
-  font-family: 'Poppins', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* Utilities Layer */
+@layer utilities {
+  /* --- Glassmorphism System --- */
+  
+  /* Standard Glass: Neutral, Subtle */
+  .glass {
+    @apply bg-white/70 backdrop-blur-xl border border-white/50 shadow-glass;
+  }
+  
+  /* Heavy Glass: For floating panels, stronger blur */
+  .glass-heavy {
+    @apply bg-white/90 backdrop-blur-2xl border border-white/60 shadow-glass;
+  }
+
+  /* Card Glass: For list items */
+  .glass-card {
+    @apply bg-white/60 backdrop-blur-md border border-white/40 shadow-card transition-all duration-300;
+  }
+  
+  .glass-card:hover {
+    @apply bg-white/80 border-white/60 shadow-card-hover transform -translate-y-[1px];
+  }
+
+  /* Dark Glass: For toasts or emphasis */
+  .glass-dark {
+    @apply bg-slate-900/85 backdrop-blur-xl border border-slate-700/50 shadow-lg text-white;
+  }
+
+  /* Input Glass: For forms */
+  .glass-input {
+    @apply bg-white/50 border border-slate-200/60 focus:bg-white focus:border-brand-300 focus:ring-4 focus:ring-brand-100/50 transition-all duration-200 outline-none backdrop-blur-sm;
+  }
+
+  /* --- Text Effects --- */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700;
+  }
+  
+  .text-gradient-brand {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-brand-400;
+  }
+
+  /* --- Scrollbar --- */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  /* --- Animation Delays --- */
+  .delay-100 { animation-delay: 100ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-500 { animation-delay: 500ms; }
+
+  .animate-delay-100 { animation-delay: 100ms; }
+  .animate-delay-200 { animation-delay: 200ms; }
+  .animate-delay-300 { animation-delay: 300ms; }
 }
 
-/* Headings default to Montserrat */
-h1, h2, h3, h4, h5, h6 {
-  font-family: 'Montserrat', sans-serif;
-  @apply font-bold;
-}
-
-/* Custom Scrollbar for typical sidepanel behavior */
+/* --- Premium Scrollbar --- */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
+  height: 5px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 rounded-full;
-}
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-400;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 100vh;
+  transition: background 0.3s ease;
 }
 
-/* 焦点状态 */
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.4);
+}
+
+/* --- Focus States --- */
 *:focus {
   outline: none;
 }
 
 *:focus-visible {
-  @apply outline-none ring-2 ring-brand-end;
+  @apply outline-none ring-2 ring-brand-500/30 ring-offset-1 transition-shadow;
 }

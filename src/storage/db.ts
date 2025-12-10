@@ -2,6 +2,7 @@ import Dexie, { type Table } from "dexie";
 import type { Extraction } from "@/shared/types/extraction";
 import type { Demand } from "@/shared/types/demand";
 import type { ConfigItem } from "@/shared/types/config";
+import type { DemandGroup } from "@/shared/types/demand-group";
 
 /**
  * Demand Radar 数据库
@@ -10,6 +11,7 @@ import type { ConfigItem } from "@/shared/types/config";
 export class DemandRadarDB extends Dexie {
   extractions!: Table<Extraction>;
   demands!: Table<Demand>;
+  demandGroups!: Table<DemandGroup>;
   config!: Table<ConfigItem>;
 
   constructor() {
@@ -17,15 +19,20 @@ export class DemandRadarDB extends Dexie {
 
     // 数据库版本 1
     this.version(1).stores({
-      // 主键 + 索引
       extractions: "id, url, platform, capturedAt, analysisStatus",
       demands:
         "id, extractionId, *tags, starred, archived, groupId, createdAt, [starred+createdAt]",
       config: "key",
     });
 
-    // 可以在这里添加数据迁移逻辑
-    // this.version(2).stores({...}).upgrade(...)
+    // 数据库版本 2：新增分组表
+    this.version(2).stores({
+      extractions: "id, url, platform, capturedAt, analysisStatus",
+      demands:
+        "id, extractionId, *tags, starred, archived, groupId, createdAt, [starred+createdAt]",
+      demandGroups: "id, name, createdAt",
+      config: "key",
+    });
   }
 
   /**

@@ -4,12 +4,14 @@
  */
 
 import { llmService, type AnalysisResult } from "./llm";
+import { DedupService } from "./dedup-service";
 import {
   extractionRepo,
   demandRepo,
   configRepo,
   capacityManager,
   db,
+  demandGroupRepo,
 } from "@/storage";
 import { piiFilter } from "@/shared/utils/pii-filter";
 import {
@@ -25,12 +27,14 @@ import type { LLMConfig } from "@/shared/types/config";
 import type { ExtractionResult } from "@/content/adapters/base";
 import { ERROR_CODES } from "@/shared/constants";
 import { generateId, truncateText } from "@/shared/utils/text-utils";
+import type { AnalysisTask } from "@/shared/types/analysis-task";
 
 /**
  * 消息处理器类
  * 负责路由和处理所有扩展内部消息
  */
 export class MessageHandler {
+  private dedupService = new DedupService();
   /**
    * 主消息路由
    */
@@ -44,7 +48,9 @@ export class MessageHandler {
       switch (message.type) {
         // 分析相关
         case MessageType.ANALYZE_CURRENT_PAGE:
-          return await this.handleAnalyzeCurrentPage(sender.tab?.id);
+          return await this.handleAnalyzeCurrentPage(sender.tab?.id, message.payload as { taskId?: string });
+        case MessageType.BATCH_ANALYZE_START:
+          return await this.handleBatchAnalyze();
 
         case MessageType.QUICK_SAVE_CURRENT_PAGE:
           return await this.handleQuickSave(sender.tab?.id);
@@ -102,6 +108,12 @@ export class MessageHandler {
         case MessageType.PAGE_INFO_UPDATED:
           return this.handlePageInfoUpdated(message.payload);
 
+        // 去重
+        case MessageType.DEDUP_ANALYZE_START:
+          return await this.handleDedupAnalyze();
+        case MessageType.DEDUP_CONFIRM:
+          return await this.handleDedupConfirm(message.payload as { suggestedName: string; demandIds: string[]; commonPainPoints?: string[] });
+
         default:
           return {
             success: false,
@@ -121,7 +133,8 @@ export class MessageHandler {
    * 处理分析当前页面请求
    */
   private async handleAnalyzeCurrentPage(
-    tabId?: number
+    tabId?: number,
+    payload?: { taskId?: string }
   ): Promise<MessageResponse> {
     const resolvedTabId = await this.resolveTabId(tabId);
     if (!resolvedTabId) {
@@ -145,9 +158,26 @@ export class MessageHandler {
     // 配置 LLM 服务
     llmService.setConfig(config.llm);
 
-    // 通知开始分析
+    const taskId = payload?.taskId || generateId();
+    const tab = resolvedTabId ? await chrome.tabs.get(resolvedTabId) : undefined;
+    const source = {
+      url: tab?.url || "",
+      title: tab?.title || "",
+      platform: "generic",
+    };
+
     this.broadcastToPanel({
-      type: MessageType.ANALYSIS_STARTED,
+      type: MessageType.TASK_CREATED,
+      payload: {
+        id: taskId,
+        source,
+        status: "pending",
+        createdAt: new Date(),
+      } as AnalysisTask,
+    });
+    this.broadcastToPanel({
+      type: MessageType.TASK_STATUS_UPDATED,
+      payload: { taskId, status: "extracting" },
     });
 
     try {
@@ -182,6 +212,11 @@ export class MessageHandler {
 
       // 4. 截断内容（防止超长）
       const { text: truncatedContent, truncated } = truncateText(sanitizedContent, 20000);
+
+      this.broadcastToPanel({
+        type: MessageType.TASK_STATUS_UPDATED,
+        payload: { taskId, status: "analyzing" },
+      });
 
       // 5. 调用 LLM 分析
       const analysisResult = await llmService.analyze(truncatedContent);
@@ -220,8 +255,8 @@ export class MessageHandler {
 
       // 8. 通知分析完成
       this.broadcastToPanel({
-        type: MessageType.ANALYSIS_COMPLETE,
-        payload: demandsWithMeta,
+        type: MessageType.TASK_COMPLETED,
+        payload: { taskId, result: demandsWithMeta },
       });
 
       return { success: true, data: demandsWithMeta };
@@ -230,8 +265,8 @@ export class MessageHandler {
 
       const errorPayload = this.classifyError(error);
       this.broadcastToPanel({
-        type: MessageType.ANALYSIS_ERROR,
-        payload: errorPayload,
+        type: MessageType.TASK_ERROR,
+        payload: { taskId, error: errorPayload },
       });
 
       return { success: false, error: errorPayload.message };
@@ -316,6 +351,116 @@ export class MessageHandler {
 
       return { success: false, error: String(error) };
     }
+  }
+
+  /**
+   * 批量分析待处理的提取记录
+   */
+  private async handleBatchAnalyze(): Promise<MessageResponse> {
+    const config = await configRepo.getAppConfig();
+    if (!config.llm?.apiKey) {
+      return { success: false, error: "LLM not configured" };
+    }
+    llmService.setConfig(config.llm);
+
+    const pending = await extractionRepo.getPending();
+    const tasks = pending.slice(0, 20); // 批量上限
+    let completed = 0;
+    let failed = 0;
+
+    const processOne = async (extraction: Extraction) => {
+      const taskId = generateId();
+      this.broadcastToPanel({
+        type: MessageType.TASK_CREATED,
+        payload: {
+          id: taskId,
+          source: {
+            url: extraction.url,
+            title: extraction.title,
+            platform: extraction.platform,
+          },
+          status: "pending",
+          createdAt: new Date(),
+        } as AnalysisTask,
+      });
+
+      try {
+        this.broadcastToPanel({
+          type: MessageType.TASK_STATUS_UPDATED,
+          payload: { taskId, status: "analyzing" },
+        });
+
+        const analysisResult = await llmService.analyze(extraction.originalText);
+        const demandsWithMeta: AnalysisResultPayload = {
+          extractionId: extraction.id,
+          summary: analysisResult.summary,
+          demands: analysisResult.demands.map((demand) => ({
+            id: generateId(),
+            solution: demand.solution,
+            validation: demand.validation,
+          })),
+        };
+
+        await extractionRepo.update(extraction.id, {
+          summary: analysisResult.summary,
+          analysisStatus: "completed",
+          demandCount: analysisResult.demands.length,
+        });
+
+        await demandRepo.createMany(
+          demandsWithMeta.demands.map((d) => ({
+            extractionId: extraction.id,
+            solution: d.solution,
+            validation: d.validation,
+            sourceUrl: extraction.url,
+            sourceTitle: extraction.title,
+            sourcePlatform: extraction.platform,
+          }))
+        );
+
+        this.broadcastToPanel({
+          type: MessageType.TASK_COMPLETED,
+          payload: { taskId, result: demandsWithMeta },
+        });
+        completed += 1;
+      } catch (error) {
+        failed += 1;
+        await extractionRepo.update(extraction.id, {
+          analysisStatus: "failed",
+        });
+        this.broadcastToPanel({
+          type: MessageType.TASK_ERROR,
+          payload: { taskId, error: this.classifyError(error) },
+        });
+      }
+
+      this.broadcastToPanel({
+        type: MessageType.BATCH_ANALYZE_PROGRESS,
+        payload: {
+          total: tasks.length,
+          completed,
+          failed,
+          running: tasks.length - (completed + failed),
+        },
+      });
+    };
+
+    // 简单并发控制
+    const concurrency = 3;
+    const queue = [...tasks];
+    const workers = new Array(Math.min(concurrency, queue.length))
+      .fill(null)
+      .map(async () => {
+        while (queue.length) {
+          const next = queue.shift();
+          if (next) {
+            await processOne(next);
+          }
+        }
+      });
+
+    await Promise.all(workers);
+    return { success: true, data: { total: tasks.length, completed, failed } };
   }
 
   /**
@@ -532,6 +677,9 @@ export class MessageHandler {
   private async handleClearData(): Promise<MessageResponse> {
     await db.extractions.clear();
     await db.demands.clear();
+    if (db.demandGroups) {
+      await db.demandGroups.clear();
+    }
     return { success: true };
   }
 
@@ -545,6 +693,50 @@ export class MessageHandler {
       payload,
     });
     return { success: true };
+  }
+
+  /**
+   * 占位的队列任务执行器（当前未使用）
+   */
+  private async executeAnalysisTask(_task: AnalysisTask): Promise<void> {
+    // 预留扩展：可在此实现统一的任务执行逻辑
+    return;
+  }
+
+  /**
+   * 去重分析
+   */
+  private async handleDedupAnalyze(): Promise<MessageResponse> {
+    const config = await configRepo.getAppConfig();
+    if (!config.llm?.apiKey) {
+      return { success: false, error: "LLM not configured" };
+    }
+    llmService.setConfig(config.llm);
+
+    const demands = await demandRepo.getAll({ archived: false });
+    if (demands.length < 5) {
+      return { success: false, error: "Not enough demands" };
+    }
+
+    const formatted = demands.map((d) => ({
+      id: d.id,
+      title: d.solution.title,
+      description: d.solution.description,
+      targetUser: d.solution.targetUser,
+      differentiators: d.solution.keyDifferentiators,
+    }));
+
+    const result = await this.dedupService.analyze(formatted, config.llm);
+    return { success: true, data: result };
+  }
+
+  /**
+   * 确认去重合并
+   */
+  private async handleDedupConfirm(payload: { suggestedName: string; demandIds: string[]; commonPainPoints?: string[] }): Promise<MessageResponse> {
+    const group = await demandGroupRepo.create(payload.suggestedName, payload.demandIds, payload.commonPainPoints || []);
+    await demandRepo.updateGroup(payload.demandIds, group.id, group.name);
+    return { success: true, data: group };
   }
 
   /**

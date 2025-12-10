@@ -99,13 +99,22 @@ export class ProviderFactory {
    * 测试连接
    */
   static async testConnection(config: LLMConfig): Promise<boolean> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     try {
       const model = ProviderFactory.create(config);
-      await model.invoke("Hello");
+      await model.invoke("Hello", { signal: controller.signal });
       return true;
     } catch (error) {
-      console.error("LLM connection test failed:", error);
+      if (error instanceof Error && error.name === "AbortError") {
+        console.error("LLM connection test timed out");
+      } else {
+        console.error("LLM connection test failed:", error);
+      }
       return false;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 }

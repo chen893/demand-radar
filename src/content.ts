@@ -1,5 +1,5 @@
 import type { PlasmoCSConfig } from "plasmo";
-import { adapterRegistry, type ExtractionResult } from "./adapters";
+import { adapterRegistry, type ExtractionResult } from "./content/adapters";
 import { MessageType, type PageInfoPayload } from "@/shared/types/messages";
 
 /**

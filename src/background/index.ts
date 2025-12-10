@@ -186,8 +186,17 @@ chrome.runtime.onConnect.addListener((port) => {
     });
 
     port.onMessage.addListener(async (message) => {
-      const response = await messageHandler.handleMessage(message, port.sender!);
-      port.postMessage(response);
+      try {
+        const sender: chrome.runtime.MessageSender = port.sender ?? {};
+        const response = await messageHandler.handleMessage(message, sender);
+        port.postMessage(response);
+      } catch (error) {
+        console.error("[Background] Port message handler error:", error);
+        port.postMessage({
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     });
   }
 });

@@ -28,7 +28,7 @@ export function AnalysisView() {
   } = useAnalysisStore();
 
   const { isConfigured } = useConfigStore();
-
+  console.log("test", pageInfo);
   // 处理分析按钮点击
   const handleAnalyze = async () => {
     if (!isConfigured) {
@@ -111,6 +111,8 @@ export function AnalysisView() {
         return "知乎";
       case "generic":
         return "通用网页";
+      case "unsupported":
+        return "不支持的网站";
       default:
         return "未知";
     }
@@ -140,7 +142,11 @@ export function AnalysisView() {
       <div className="p-4 border-b flex gap-2">
         <button
           onClick={handleAnalyze}
-          disabled={status === "extracting" || status === "analyzing" || !pageInfo?.canAnalyze}
+          disabled={
+            status === "extracting" ||
+            status === "analyzing" ||
+            !pageInfo?.canAnalyze
+          }
           className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
         >
           {status === "extracting" && "提取中..."}
@@ -149,7 +155,11 @@ export function AnalysisView() {
         </button>
         <button
           onClick={handleQuickSave}
-          disabled={status === "extracting" || status === "analyzing" || !pageInfo?.canAnalyze}
+          disabled={
+            status === "extracting" ||
+            status === "analyzing" ||
+            !pageInfo?.canAnalyze
+          }
           className="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-colors"
           title="保存页面内容，稍后分析"
         >
@@ -176,7 +186,9 @@ export function AnalysisView() {
             {/* 摘要 */}
             {summary && (
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">页面摘要</h3>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">
+                  页面摘要
+                </h3>
                 <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
                   {summary}
                 </p>
@@ -229,9 +241,25 @@ export function AnalysisView() {
 
         {/* 空状态 */}
         {status === "idle" && (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400">
-            <div className="text-4xl mb-2">🔍</div>
-            <div className="text-sm">点击"分析此页面"开始</div>
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 px-4">
+            {pageInfo?.platform === "unsupported" ? (
+              <>
+                <div className="text-4xl mb-3">🚫</div>
+                <div className="text-sm text-gray-600 text-center mb-2">
+                  当前网站不支持分析
+                </div>
+                <div className="text-xs text-gray-500 text-center">
+                  目前仅支持 Reddit 和知乎
+                  <br />
+                  请导航到支持的网站后使用
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-4xl mb-2">🔍</div>
+                <div className="text-sm">点击"分析此页面"开始</div>
+              </>
+            )}
           </div>
         )}
 
@@ -240,7 +268,9 @@ export function AnalysisView() {
           <div className="flex flex-col items-center justify-center h-full">
             <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mb-3"></div>
             <div className="text-sm text-gray-500">
-              {status === "extracting" ? "正在提取页面内容..." : "正在分析产品方向..."}
+              {status === "extracting"
+                ? "正在提取页面内容..."
+                : "正在分析产品方向..."}
             </div>
           </div>
         )}

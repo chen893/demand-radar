@@ -4,12 +4,20 @@
  */
 
 import { create } from "zustand";
-import type { AnalysisResultPayload, PageInfoPayload } from "@/shared/types/messages";
+import type {
+  AnalysisResultPayload,
+  PageInfoPayload,
+} from "@/shared/types/messages";
 
 /**
  * 分析状态
  */
-type AnalysisStatus = "idle" | "extracting" | "analyzing" | "completed" | "error";
+type AnalysisStatus =
+  | "idle"
+  | "extracting"
+  | "analyzing"
+  | "completed"
+  | "error";
 
 interface DemandPreview {
   id: string;
@@ -68,6 +76,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
 
   // 设置页面信息
   setPageInfo: (info) => {
+    console.log("info", info);
     const currentInfo = get().pageInfo;
     // URL 变化时重置分析状态
     if (currentInfo?.url !== info?.url) {

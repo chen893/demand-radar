@@ -123,7 +123,8 @@ export class MessageHandler {
   private async handleAnalyzeCurrentPage(
     tabId?: number
   ): Promise<MessageResponse> {
-    if (!tabId) {
+    const resolvedTabId = await this.resolveTabId(tabId);
+    if (!resolvedTabId) {
       return { success: false, error: "No active tab" };
     }
 
@@ -151,7 +152,7 @@ export class MessageHandler {
 
     try {
       // 1. 请求 Content Script 提取内容
-      const extractionResult = await this.sendToContentScript(tabId, {
+      const extractionResult = await this.sendToContentScript(resolvedTabId, {
         type: MessageType.EXTRACT_CONTENT,
       });
 
@@ -241,13 +242,14 @@ export class MessageHandler {
    * 处理快速保存请求
    */
   private async handleQuickSave(tabId?: number): Promise<MessageResponse> {
-    if (!tabId) {
+    const resolvedTabId = await this.resolveTabId(tabId);
+    if (!resolvedTabId) {
       return { success: false, error: "No active tab" };
     }
 
     try {
       // 请求 Content Script 提取内容
-      const extractionResult = await this.sendToContentScript(tabId, {
+      const extractionResult = await this.sendToContentScript(resolvedTabId, {
         type: MessageType.EXTRACT_CONTENT,
       });
 
@@ -401,13 +403,23 @@ export class MessageHandler {
     let demands: Demand[];
 
     if (options?.query) {
+      // 搜索模式：在未归档的数据中搜索
       demands = await demandRepo.search(options.query);
-    } else if (options?.starred) {
-      demands = await demandRepo.getStarred();
-    } else if (options?.archived) {
-      demands = await demandRepo.getArchived();
     } else {
-      demands = await demandRepo.getAll();
+      // 构建筛选条件
+      const filterOptions: { starred?: boolean; archived?: boolean } = {};
+
+      // 收藏筛选
+      if (options?.starred) {
+        filterOptions.starred = true;
+      }
+
+      // 归档筛选：
+      // - 点击归档按钮：显示归档的
+      // - 未点击归档按钮：显示未归档的（默认行为）
+      filterOptions.archived = options?.archived ?? false;
+
+      demands = await demandRepo.getAll(filterOptions);
     }
 
     return { success: true, data: demands };
@@ -533,6 +545,23 @@ export class MessageHandler {
       payload,
     });
     return { success: true };
+  }
+
+  /**
+   * 获取有效的标签页 ID
+   * 如果未提供，尝试获取当前窗口的活跃标签页
+   */
+  private async resolveTabId(tabId?: number): Promise<number | null> {
+    if (tabId) {
+      return tabId;
+    }
+
+    const [activeTab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+
+    return activeTab?.id ?? null;
   }
 
   /**

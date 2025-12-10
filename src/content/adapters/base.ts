@@ -3,7 +3,7 @@
  */
 export interface ExtractionResult {
   success: boolean;
-  platform: "reddit" | "zhihu" | "generic";
+  platform: "reddit" | "zhihu" | "twitter" | "generic";
 
   content: {
     title: string;
@@ -14,6 +14,8 @@ export interface ExtractionResult {
       timestamp?: string;
       url: string;
       subreddit?: string; // Reddit 特有
+      tweetCount?: number; // Twitter 特有：推文数量
+      replyCount?: number; // Twitter 特有：回复数量
     };
   };
 
@@ -43,7 +45,7 @@ export interface IPlatformAdapter {
   /**
    * 获取平台名称
    */
-  getPlatformName(): "reddit" | "zhihu" | "generic";
+  getPlatformName(): "reddit" | "zhihu" | "twitter" | "generic";
 }
 
 /**
@@ -51,7 +53,7 @@ export interface IPlatformAdapter {
  */
 export abstract class BasePlatformAdapter implements IPlatformAdapter {
   abstract canHandle(url: string): boolean;
-  abstract getPlatformName(): "reddit" | "zhihu" | "generic";
+  abstract getPlatformName(): "reddit" | "zhihu" | "twitter" | "generic";
 
   /**
    * 具体的内容提取逻辑，由子类实现

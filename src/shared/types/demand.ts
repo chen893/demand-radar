@@ -36,6 +36,7 @@ export interface Demand {
   // ===== 需求分组（P1，用户确认去重后填充）=====
   groupId?: string; // 同一需求的分组 ID
   groupName?: string; // 分组名称（如「PDF 工具需求」）
+  addedToGroupAt?: Date; // 加入分组的时间
 
   // 时间戳
   createdAt: Date;

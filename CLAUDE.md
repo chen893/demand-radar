@@ -40,14 +40,16 @@
 - mcp__exa__web_search_exa：搜索信息/文档
 - mcp__exa__get_code_context_exa：搜索代码/API 文档
 
-## 复杂任务
 
-- 需求分析：requirements-analyst 代理
-- 架构设计：senior-code-architect 代理
-- 代码审查：code-reviewer 代理
-- 测试编写：vitest-tester 代理
 
 ## Git 规范
 
 允许：log、status、diff、branch、show（只读操作）
 禁止：commit、push、pull、merge、rebase、reset
+
+## 当前迭代信息
+
+- **需求文档**: `prd-2.1.md`
+- **技术文档**: `tdd-2.1.md`
+- **开发计划**: `implementation-plan-2.1.md`
+- **LangChain**: 使用 `mcp__docs-langchain` 获取最新文档

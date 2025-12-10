@@ -18,6 +18,10 @@ import {
   type MessageResponse,
   type AnalysisResultPayload,
   type AnalysisErrorPayload,
+  type TaskCreatePayload,
+  type TaskStatusUpdatePayload,
+  type TaskCompletePayload,
+  type TaskErrorPayload,
 } from "@/shared/types/messages";
 import type { Extraction } from "@/shared/types/extraction";
 import type { Demand, DemandInput } from "@/shared/types/demand";
@@ -25,6 +29,8 @@ import type { LLMConfig } from "@/shared/types/config";
 import type { ExtractionResult } from "@/content/adapters/base";
 import { ERROR_CODES } from "@/shared/constants";
 import { generateId, truncateText } from "@/shared/utils/text-utils";
+import { dedupService } from "./dedup-service";
+import { demandGroupRepo } from "@/storage/repositories/demand-group";
 
 /**
  * 消息处理器类
@@ -44,7 +50,10 @@ export class MessageHandler {
       switch (message.type) {
         // 分析相关
         case MessageType.ANALYZE_CURRENT_PAGE:
-          return await this.handleAnalyzeCurrentPage(sender.tab?.id);
+          return await this.handleAnalyzeCurrentPage(
+            sender.tab?.id,
+            message.payload as { taskId?: string; source?: { url: string; title: string; platform: string } }
+          );
 
         case MessageType.QUICK_SAVE_CURRENT_PAGE:
           return await this.handleQuickSave(sender.tab?.id);
@@ -102,6 +111,34 @@ export class MessageHandler {
         case MessageType.PAGE_INFO_UPDATED:
           return this.handlePageInfoUpdated(message.payload);
 
+        // === v2.1: 任务管理 ===
+        case MessageType.TASK_CREATED:
+          return this.handleTaskCreated(message.payload as TaskCreatePayload);
+
+        case MessageType.TASK_STATUS_UPDATED:
+          return this.handleTaskStatusUpdated(message.payload as TaskStatusUpdatePayload);
+
+        case MessageType.TASK_COMPLETED:
+          return this.handleTaskCompleted(message.payload as TaskCompletePayload);
+
+        case MessageType.TASK_ERROR:
+          return this.handleTaskError(message.payload as TaskErrorPayload);
+
+        case MessageType.TASK_CANCELLED:
+          return this.handleTaskCancelled(message.payload as { taskId: string });
+
+        case MessageType.GET_PENDING_TASKS:
+          return this.handleGetPendingTasks();
+
+        case MessageType.CANCEL_ALL_TASKS:
+          return this.handleCancelAllTasks();
+
+        // 需求去重
+        case MessageType.DEDUP_ANALYZE_START:
+          return await this.handleDedupAnalyzeStart();
+        case MessageType.DEDUP_CONFIRM:
+          return await this.handleDedupConfirm(message.payload as { groups: Array<{ suggestedName: string; demandIds: string[]; commonPainPoints?: string[]; suggestedDifferentiators?: string[] }>; uniqueDemands: string[] });
+
         default:
           return {
             success: false,
@@ -121,10 +158,15 @@ export class MessageHandler {
    * 处理分析当前页面请求
    */
   private async handleAnalyzeCurrentPage(
-    tabId?: number
+    tabId?: number,
+    payload?: { taskId?: string; source?: { url: string; title: string; platform: string }; extractionId?: string }
   ): Promise<MessageResponse> {
+    const taskId = payload?.taskId || generateId();
+    const existingExtraction = payload?.extractionId
+      ? await extractionRepo.getById(payload.extractionId)
+      : null;
     const resolvedTabId = await this.resolveTabId(tabId);
-    if (!resolvedTabId) {
+    if (!resolvedTabId && !existingExtraction) {
       return { success: false, error: "No active tab" };
     }
 
@@ -145,23 +187,45 @@ export class MessageHandler {
     // 配置 LLM 服务
     llmService.setConfig(config.llm);
 
-    // 通知开始分析
-    this.broadcastToPanel({
-      type: MessageType.ANALYSIS_STARTED,
-    });
-
     try {
-      // 1. 请求 Content Script 提取内容
-      const extractionResult = await this.sendToContentScript(resolvedTabId, {
-        type: MessageType.EXTRACT_CONTENT,
+      // 标记任务提取中
+      this.broadcastToPanel({
+        type: MessageType.TASK_STATUS_UPDATED,
+        payload: { taskId, status: "extracting" },
       });
 
-      if (!extractionResult.success) {
-        throw new Error(extractionResult.error || "Content extraction failed");
-      }
+      let extraction: ExtractionResult | null = null;
+      let contentText = "";
 
-      const extraction = extractionResult.data as ExtractionResult;
-      const contentText = extraction.content.body;
+      if (existingExtraction) {
+        // 使用已存储的提取内容
+        contentText = existingExtraction.originalText;
+        extraction = {
+          success: true,
+          platform: existingExtraction.platform,
+          content: {
+            title: existingExtraction.title,
+            body: existingExtraction.originalText,
+            metadata: {
+              url: existingExtraction.url,
+            },
+          },
+          truncated: existingExtraction.truncated,
+          originalLength: existingExtraction.originalLength,
+        };
+      } else {
+        // 1. 请求 Content Script 提取内容
+        const extractionResult = await this.sendToContentScript(resolvedTabId, {
+          type: MessageType.EXTRACT_CONTENT,
+        });
+
+        if (!extractionResult.success) {
+          throw new Error(extractionResult.error || "Content extraction failed");
+        }
+
+        extraction = extractionResult.data as ExtractionResult;
+        contentText = extraction.content.body;
+      }
 
       // 2. 检查存储容量
       const capacityCheck = await capacityManager.canStore(contentText.length);
@@ -183,11 +247,15 @@ export class MessageHandler {
       // 4. 截断内容（防止超长）
       const { text: truncatedContent, truncated } = truncateText(sanitizedContent, 20000);
 
-      // 5. 调用 LLM 分析
+      // 5. 调用 LLM 分析（标记分析中）
+      this.broadcastToPanel({
+        type: MessageType.TASK_STATUS_UPDATED,
+        payload: { taskId, status: "analyzing", data: { progress: 0 } },
+      });
       const analysisResult = await llmService.analyze(truncatedContent);
 
       // 6. 创建提取记录
-      const extractionId = generateId();
+      const extractionId = existingExtraction?.id || generateId();
       const extractionRecord: Extraction = {
         id: extractionId,
         url: extraction.content.metadata.url,
@@ -197,15 +265,19 @@ export class MessageHandler {
         summary: analysisResult.summary,
         analysisStatus: "completed",
         demandCount: analysisResult.demands.length,
-        savedDemandCount: 0,
+        savedDemandCount: existingExtraction?.savedDemandCount || 0,
         truncated,
         originalLength: contentText.length,
-        capturedAt: new Date(),
-        createdAt: new Date(),
+        capturedAt: existingExtraction?.capturedAt || new Date(),
+        createdAt: existingExtraction?.createdAt || new Date(),
         updatedAt: new Date(),
       };
 
-      await extractionRepo.create(extractionRecord);
+      if (existingExtraction) {
+        await extractionRepo.update(extractionId, extractionRecord);
+      } else {
+        await extractionRepo.create(extractionRecord);
+      }
 
       // 7. 构建返回的需求列表（添加 ID 和来源信息）
       const demandsWithMeta: AnalysisResultPayload = {
@@ -218,10 +290,13 @@ export class MessageHandler {
         })),
       };
 
-      // 8. 通知分析完成
+      // 8. 通知任务完成
       this.broadcastToPanel({
-        type: MessageType.ANALYSIS_COMPLETE,
-        payload: demandsWithMeta,
+        type: MessageType.TASK_COMPLETED,
+        payload: {
+          taskId,
+          result: demandsWithMeta,
+        },
       });
 
       return { success: true, data: demandsWithMeta };
@@ -230,8 +305,8 @@ export class MessageHandler {
 
       const errorPayload = this.classifyError(error);
       this.broadcastToPanel({
-        type: MessageType.ANALYSIS_ERROR,
-        payload: errorPayload,
+        type: MessageType.TASK_ERROR,
+        payload: { taskId, error: { ...errorPayload, retryable: true } },
       });
 
       return { success: false, error: errorPayload.message };
@@ -509,6 +584,7 @@ export class MessageHandler {
   private async handleExportData(): Promise<MessageResponse> {
     const extractions = await extractionRepo.getAll();
     const demands = await demandRepo.getAll();
+    const demandGroups = await db.demandGroups.toArray();
     const config = await configRepo.getAppConfig();
 
     const exportData = {
@@ -516,6 +592,7 @@ export class MessageHandler {
       exportedAt: new Date().toISOString(),
       extractions,
       demands,
+      demandGroups,
       // 不导出 API Key
       config: {
         siteWhitelist: config.siteFilter.whitelist,
@@ -530,8 +607,7 @@ export class MessageHandler {
    * 清空数据
    */
   private async handleClearData(): Promise<MessageResponse> {
-    await db.extractions.clear();
-    await db.demands.clear();
+    await db.clearAll();
     return { success: true };
   }
 
@@ -650,6 +726,169 @@ export class MessageHandler {
       message: errorObj.message || "分析失败，请重试",
       action: "retry",
     };
+  }
+
+  // ===== v2.1: 任务管理处理器 =====
+
+  /**
+   * 处理任务创建（启动分析）
+   */
+  private async handleTaskCreated(
+    payload: TaskCreatePayload
+  ): Promise<MessageResponse> {
+    const { source, extractionId } = payload;
+
+    // 检查 LLM 配置
+    const config = await configRepo.getAppConfig();
+    if (!config.llm?.apiKey) {
+      return {
+        success: false,
+        error: "LLM not configured",
+      };
+    }
+
+    // 配置 LLM 服务
+    llmService.setConfig(config.llm);
+
+    // 注意：任务创建和状态更新由 Side Panel 的 store 直接处理
+    // 这里只是启动分析流程
+    return { success: true };
+  }
+
+  /**
+   * 处理任务状态更新
+   */
+  private handleTaskStatusUpdated(
+    payload: TaskStatusUpdatePayload
+  ): MessageResponse {
+    // 转发给 Side Panel
+    this.broadcastToPanel({
+      type: MessageType.TASK_STATUS_UPDATED,
+      payload,
+    });
+    return { success: true };
+  }
+
+  /**
+   * 处理任务完成
+   */
+  private handleTaskCompleted(
+    payload: TaskCompletePayload
+  ): MessageResponse {
+    // 转发给 Side Panel
+    this.broadcastToPanel({
+      type: MessageType.TASK_COMPLETED,
+      payload,
+    });
+    return { success: true };
+  }
+
+  /**
+   * 处理任务错误
+   */
+  private handleTaskError(payload: TaskErrorPayload): MessageResponse {
+    // 转发给 Side Panel
+    this.broadcastToPanel({
+      type: MessageType.TASK_ERROR,
+      payload,
+    });
+    return { success: true };
+  }
+
+  /**
+   * 处理任务取消
+   */
+  private handleTaskCancelled(
+    payload: { taskId: string }
+  ): MessageResponse {
+    // 转发给 Side Panel
+    this.broadcastToPanel({
+      type: MessageType.TASK_CANCELLED,
+      payload,
+    });
+    return { success: true };
+  }
+
+  /**
+   * 获取待处理任务
+   */
+  private handleGetPendingTasks(): MessageResponse {
+    // 转发给 Side Panel，由 Side Panel 返回待处理任务
+    // 注意：这里需要 Side Panel 实现相应的消息处理
+    this.broadcastToPanel({
+      type: MessageType.GET_PENDING_TASKS,
+    });
+    // 由于是异步操作，这里暂时返回空数组
+    // 实际实现中应该等待 Side Panel 的响应
+    return { success: true, data: [] };
+  }
+
+  /**
+   * 取消所有任务
+   */
+  private handleCancelAllTasks(): MessageResponse {
+    // 转发给 Side Panel
+    this.broadcastToPanel({
+      type: MessageType.CANCEL_ALL_TASKS,
+    });
+    return { success: true };
+  }
+
+  /**
+   * 触发去重分析
+   */
+  private async handleDedupAnalyzeStart(): Promise<MessageResponse> {
+    try {
+      const demands = await demandRepo.getAll({ archived: false });
+      const result = await dedupService.analyze(demands);
+      this.broadcastToPanel({
+        type: MessageType.DEDUP_ANALYZE_COMPLETE,
+        payload: result,
+      });
+      return { success: true, data: result };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "去重分析失败",
+      };
+    }
+  }
+
+  /**
+   * 确认合并分组
+   */
+  private async handleDedupConfirm(payload: {
+    groups: Array<{
+      suggestedName: string;
+      demandIds: string[];
+      commonPainPoints?: string[];
+      suggestedDifferentiators?: string[];
+      notes?: string;
+    }>;
+    uniqueDemands: string[];
+  }): Promise<MessageResponse> {
+    try {
+      for (const group of payload.groups) {
+        const demands = await db.demands
+          .where("id")
+          .anyOf(group.demandIds)
+          .toArray();
+        await demandGroupRepo.create({
+          name: group.suggestedName,
+          demandIds: group.demandIds,
+          demands,
+          commonPainPoints: group.commonPainPoints,
+          suggestedDifferentiators: group.suggestedDifferentiators,
+          notes: group.notes,
+        });
+      }
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "合并分组失败",
+      };
+    }
   }
 }
 

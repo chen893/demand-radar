@@ -6,7 +6,7 @@ export interface Extraction {
   id: string; // UUID
   url: string; // 来源页面 URL
   title: string; // 页面标题
-  platform: "reddit" | "zhihu" | "generic"; // 平台标识
+  platform: "reddit" | "zhihu" | "twitter" | "generic"; // 平台标识
 
   // 内容
   originalText: string; // 原始文本（未脱敏，本地存储）
@@ -34,7 +34,7 @@ export interface Extraction {
 export interface CreateExtractionParams {
   url: string;
   title: string;
-  platform: "reddit" | "zhihu" | "generic";
+  platform: "reddit" | "zhihu" | "twitter" | "generic";
   originalText: string;
   summary?: string;
   analysisStatus?: "completed" | "pending" | "failed";

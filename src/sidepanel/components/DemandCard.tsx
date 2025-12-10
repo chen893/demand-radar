@@ -47,67 +47,79 @@ export function DemandCard({
   return (
     <div
       className={`
-        relative overflow-hidden rounded-2xl transition-all duration-300
+        relative group rounded-xl transition-all duration-300 ease-in-out border
         ${
           selected
-            ? "bg-white shadow-[0_0_0_2px_rgba(59,130,246,0.5)] shadow-brand-end/20 scale-[1.02]"
-            : "bg-white shadow-sm hover:shadow-md hover:scale-[1.01] hover:border-gray-200"
+            ? "bg-blue-50/50 border-blue-200 shadow-sm"
+            : "bg-white border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:border-gray-200"
         }
-        border border-gray-100
       `}
     >
-      {/* Selection Indicator Background */}
-      {selected && (
-        <div className="absolute inset-0 bg-gradient-to-r from-brand-start/5 to-brand-end/5 pointer-events-none" />
-      )}
-
-      {/* 头部 */}
-      <div className="p-4 relative">
-        <div className="flex items-start gap-3">
+      {/* 头部区域 */}
+      <div className="p-4 cursor-pointer" onClick={handleClick}>
+        <div className="flex items-start gap-3.5">
+          {/* Checkbox */}
           {showCheckbox && onToggle && (
-            <div className="mt-1">
-              <input
-                type="checkbox"
-                checked={selected}
-                onChange={onToggle}
-                className="w-5 h-5 rounded-md border-gray-200 text-brand-end focus:ring-brand-end transition-colors cursor-pointer"
-                onClick={(e) => e.stopPropagation()}
-              />
+            <div className="mt-0.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+              <div 
+                onClick={onToggle}
+                className={`
+                  w-5 h-5 rounded-[6px] border flex items-center justify-center transition-colors duration-200
+                  ${selected 
+                    ? "bg-blue-500 border-blue-500 text-white" 
+                    : "bg-white border-gray-300 hover:border-blue-400 text-transparent"
+                  }
+                `}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
             </div>
           )}
-          <div className="flex-1 cursor-pointer group" onClick={handleClick}>
-            <h4 className="font-montserrat font-bold text-gray-800 text-sm leading-snug group-hover:text-brand-end transition-colors">
+
+          {/* Main Content */}
+          <div className="flex-1 min-w-0">
+            {/* Title */}
+            <h4 className={`
+              text-[15px] font-semibold leading-snug tracking-tight mb-2
+              ${selected ? "text-blue-900" : "text-gray-900 group-hover:text-blue-600 transition-colors"}
+            `}>
               {demand.solution.title}
             </h4>
 
-            {/* 差异点预览 */}
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
+            {/* Tags (Differentiators) */}
+            <div className="flex flex-wrap gap-1.5 mb-2.5">
               {demand.solution.keyDifferentiators.slice(0, 3).map((diff, i) => (
                 <span
                   key={i}
-                  className="text-[10px] font-medium px-2 py-1 bg-gray-50 text-gray-600 rounded-lg group-hover:bg-brand-end/5 group-hover:text-brand-end transition-colors"
+                  className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-100/50"
                 >
                   {diff}
                 </span>
               ))}
               {demand.solution.keyDifferentiators.length > 3 && (
-                <span className="text-[10px] px-1.5 py-1 text-gray-400 bg-gray-50 rounded-lg">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-50 text-gray-500 border border-gray-100">
                   +{demand.solution.keyDifferentiators.length - 3}
                 </span>
               )}
             </div>
+            
+            {/* Description Preview */}
+            {!expanded && (
+               <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">
+                 {demand.solution.description}
+               </p>
+            )}
 
-            {/* 竞品信息 */}
-            {demand.validation.competitors.length > 0 && (
-              <div className="mt-2 flex items-center gap-1.5 text-[10px] text-gray-400">
-                <span>VS</span>
+            {/* Bottom Meta (Competitors) */}
+            {demand.validation.competitors.length > 0 && !expanded && (
+              <div className="mt-2.5 flex items-center gap-2 text-[10px] text-gray-400">
+                <span className="uppercase tracking-wider font-semibold text-[9px]">VS</span>
                 <div className="flex flex-wrap gap-1">
                   {demand.validation.competitors.slice(0, 3).map((comp, i) => (
-                    <span
-                      key={i}
-                      className="px-1.5 py-0.5 border border-gray-100 rounded text-gray-500 bg-white"
-                    >
-                      {comp}
+                    <span key={i} className="text-gray-600">
+                      {comp}{i < Math.min(demand.validation.competitors.length, 3) - 1 && ","}
                     </span>
                   ))}
                 </div>
@@ -115,12 +127,13 @@ export function DemandCard({
             )}
           </div>
 
+          {/* Expand Toggle */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               setExpanded(!expanded);
             }}
-            className="text-gray-300 hover:text-brand-end hover:bg-brand-end/5 p-1.5 rounded-lg transition-colors"
+            className="flex-shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-all"
           >
             <svg
               className={`w-5 h-5 transition-transform duration-300 ${expanded ? "rotate-180" : ""}`}
@@ -128,109 +141,93 @@ export function DemandCard({
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
         </div>
       </div>
 
-      {/* 展开详情 */}
+      {/* 展开详情区域 */}
       {expanded && (
-        <div className="px-4 pb-4 pt-0 space-y-4 relative animation-slide-down">
-          <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-100 to-transparent mb-4" />
-
-          {/* 描述 */}
-          <div>
-            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-              Description
-            </div>
-            <p className="text-sm text-gray-600 font-poppins leading-relaxed">
-              {demand.solution.description}
-            </p>
-          </div>
-
-          {/* 目标用户 */}
-          <div>
-            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-              Target User
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🎯</span>
-              <p className="text-sm text-gray-600 font-poppins">
-                {demand.solution.targetUser}
+        <div className="px-4 pb-5 pt-0">
+          <div className="h-px w-full bg-gray-100 mb-4" />
+          
+          <div className="space-y-5">
+            {/* Description */}
+            <div>
+              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Description</div>
+              <p className="text-sm text-gray-700 leading-relaxed font-normal">
+                {demand.solution.description}
               </p>
             </div>
-          </div>
 
-          {/* 用户痛点 */}
-          {demand.validation.painPoints.length > 0 && (
+            {/* Target User */}
             <div>
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-                Pain Points
+              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Target User</div>
+              <div className="flex items-start gap-2.5 bg-gray-50/80 p-3 rounded-lg border border-gray-100">
+                <span className="text-lg leading-none">🎯</span>
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  {demand.solution.targetUser}
+                </p>
               </div>
-              <ul className="space-y-2">
-                {demand.validation.painPoints.map((point, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-2 text-sm text-gray-600"
-                  >
-                    <span className="text-status-error mt-1 text-[10px]">
-                      ●
-                    </span>
-                    <span className="flex-1">{point}</span>
-                  </li>
-                ))}
-              </ul>
             </div>
-          )}
 
-          {/* 竞品不足 */}
-          {demand.validation.competitorGaps.length > 0 && (
-            <div>
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-                Market Gaps
-              </div>
-              <ul className="space-y-2">
-                {demand.validation.competitorGaps.map((gap, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-2 text-sm text-gray-600"
-                  >
-                    <span className="text-status-warning mt-1 text-[10px]">
-                      ●
-                    </span>
-                    <span className="flex-1">{gap}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* 原文证据 */}
-          {demand.validation.quotes.length > 0 && (
-            <div className="bg-gray-50 rounded-xl p-3">
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
-                Voice of User
-              </div>
-              <div className="space-y-2">
-                {demand.validation.quotes.map((quote, i) => (
-                  <div key={i} className="flex gap-2">
-                    <span className="text-brand-start text-xl leading-none">
-                      "
-                    </span>
-                    <p className="text-xs text-gray-600 italic leading-relaxed">
-                      {quote}
-                    </p>
+            {/* Grid Layout for Pain Points & Gaps */}
+            <div className="grid grid-cols-1 gap-4">
+              {/* Pain Points */}
+              {demand.validation.painPoints.length > 0 && (
+                <div>
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                    Pain Points
                   </div>
-                ))}
-              </div>
+                  <ul className="space-y-2">
+                    {demand.validation.painPoints.map((point, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-gray-600 leading-relaxed">
+                        <span className="text-gray-300 mt-1.5 text-[6px]">●</span>
+                        <span className="flex-1">{point}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Market Gaps */}
+              {demand.validation.competitorGaps.length > 0 && (
+                <div>
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
+                    Market Gaps
+                  </div>
+                  <ul className="space-y-2">
+                    {demand.validation.competitorGaps.map((gap, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-gray-600 leading-relaxed">
+                        <span className="text-gray-300 mt-1.5 text-[6px]">●</span>
+                        <span className="flex-1">{gap}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
-          )}
+
+            {/* Voice of User */}
+            {demand.validation.quotes.length > 0 && (
+              <div>
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Voice of User</div>
+                <div className="grid gap-2">
+                  {demand.validation.quotes.map((quote, i) => (
+                    <div key={i} className="relative bg-blue-50/50 p-3 rounded-lg border border-blue-100/50">
+                      <span className="absolute top-2 left-2 text-blue-200 text-2xl leading-none font-serif">“</span>
+                      <p className="text-xs text-gray-600 italic leading-relaxed pl-4 relative z-10">
+                        {quote}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

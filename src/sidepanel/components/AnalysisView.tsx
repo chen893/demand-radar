@@ -28,7 +28,7 @@ export function AnalysisView() {
   } = useAnalysisStore();
 
   const { isConfigured } = useConfigStore();
-  console.log("test", pageInfo);
+
   // 处理分析按钮点击
   const handleAnalyze = async () => {
     if (!isConfigured) {
@@ -51,24 +51,6 @@ export function AnalysisView() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "分析失败");
-    }
-  };
-
-  // 处理快速保存
-  const handleQuickSave = async () => {
-    try {
-      const response = await chrome.runtime.sendMessage({
-        type: MessageType.QUICK_SAVE_CURRENT_PAGE,
-      });
-
-      if (response.success) {
-        // 显示成功提示
-        alert("页面已保存，稍后可以进行分析");
-      } else {
-        setError(response.error || "保存失败");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败");
     }
   };
 
@@ -118,135 +100,152 @@ export function AnalysisView() {
     }
   };
 
+  // Determine button state
+  const isAnalyzing = status === "extracting" || status === "analyzing";
+  const canAnalyze = pageInfo?.canAnalyze && !isAnalyzing;
+
   return (
-    <div className="flex flex-col h-full bg-slate-50 relative">
-      {/* Background blobs for depth */}
-      <div className="absolute top-20 left-10 w-32 h-32 bg-brand-start/5 rounded-full blur-2xl pointer-events-none" />
-      <div className="absolute bottom-40 right-10 w-40 h-40 bg-brand-end/5 rounded-full blur-2xl pointer-events-none" />
+    <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden">
+        {/* Top Gradient Accent */}
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-purple-500 z-10" />
 
-      {/* 当前页面信息 */}
-      <div className="mx-4 mt-4 p-4 bg-white/60 backdrop-blur-sm border border-white shadow-sm rounded-2xl relative z-0">
-        <div className="flex justify-between items-start mb-1">
-          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-            Current Page
-          </div>
-          {pageInfo?.platform && (
-            <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                pageInfo.canAnalyze
-                  ? "bg-brand-end/10 text-brand-end"
-                  : "bg-status-warning/10 text-status-warning"
-              }`}
-            >
-              {getPlatformName(pageInfo.platform)}
-            </span>
-          )}
+      {/* 顶部：页面信息与操作 */}
+      <div className="flex-none p-4 bg-white border-b border-gray-100 shadow-sm z-10">
+        {/* 页面信息卡片 */}
+        <div className="mb-4">
+             <div className="flex items-center gap-2 mb-1">
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                    pageInfo?.canAnalyze ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-500"
+                }`}>
+                    {getPlatformName(pageInfo?.platform)}
+                </span>
+             </div>
+             <h2 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2" title={pageInfo?.title}>
+                {pageInfo?.title || "Waiting for page..."}
+             </h2>
         </div>
-        <div
-          className="font-montserrat font-bold text-gray-800 line-clamp-2 leading-tight"
-          title={pageInfo?.title}
-        >
-          {pageInfo?.title || "未检测到页面"}
-        </div>
-      </div>
 
-      {/* 操作按钮 */}
-      <div className="mx-4 mt-3 flex gap-3 z-0">
+        {/* 操作按钮组 */}
         <button
           onClick={handleAnalyze}
-          disabled={
-            status === "extracting" ||
-            status === "analyzing" ||
-            !pageInfo?.canAnalyze
-          }
-          className="flex-1 relative overflow-hidden group bg-gradient-to-r from-brand-start to-brand-end p-[1px] rounded-xl shadow-lg shadow-brand-end/20 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all hover:shadow-brand-end/40 hover:-translate-y-0.5"
+          disabled={!canAnalyze}
+          className={`
+            w-full relative overflow-hidden group rounded-xl transition-all duration-300
+            ${canAnalyze 
+                ? "bg-gray-900 text-white shadow-lg shadow-gray-900/20 hover:shadow-gray-900/30 hover:-translate-y-0.5" 
+                : "bg-gray-100 text-gray-400 cursor-not-allowed"
+            }
+          `}
         >
-          <div className="bg-white/10 backdrop-blur-sm h-full w-full rounded-[11px] px-4 py-3 flex items-center justify-center gap-2 group-hover:bg-transparent transition-colors">
-            {status === "extracting" || status === "analyzing" ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <span className="text-lg">✨</span>
-            )}
-            <span className="font-montserrat font-bold text-white tracking-wide text-sm">
-              {status === "extracting"
-                ? "Extracting..."
-                : status === "analyzing"
-                  ? "Analyzing..."
-                  : "Analyze Page"}
-            </span>
-          </div>
-        </button>
-        <button
-          onClick={handleQuickSave}
-          disabled={
-            status === "extracting" ||
-            status === "analyzing" ||
-            !pageInfo?.canAnalyze
-          }
-          className="px-4 bg-white text-gray-600 rounded-xl shadow-sm border border-gray-100 hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50 font-medium text-sm flex items-center justify-center gap-1"
-          title="Save Content"
-        >
-          <span>📥</span>
+            <div className="relative px-4 py-3 flex items-center justify-center gap-2">
+                {isAnalyzing ? (
+                    <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span className="font-medium text-sm">
+                            {status === "extracting" ? "Reading content..." : "Analyzing..."}
+                        </span>
+                    </>
+                ) : (
+                    <>
+                        <span className="text-lg">✨</span>
+                        <span className="font-medium text-sm">Deep Analyze Page</span>
+                    </>
+                )}
+            </div>
         </button>
       </div>
 
       {/* 错误提示 */}
       {status === "error" && error && (
-        <div className="mx-4 mt-4 p-4 bg-status-error/5 border border-status-error/20 rounded-2xl flex items-start gap-3">
-          <div className="text-status-error mt-0.5">⚠️</div>
+        <div className="mx-4 mt-4 p-3 bg-red-50 border border-red-100 rounded-lg flex items-start gap-3 animate-fade-in">
+          <div className="text-red-500 mt-0.5">⚠️</div>
           <div className="flex-1">
-            <div className="text-status-error font-medium text-sm">{error}</div>
+            <div className="text-red-800 font-medium text-sm">{error}</div>
             {errorAction === "settings" && (
-              <button className="mt-1 text-xs font-bold text-status-error/80 hover:text-status-error underline">
-                去设置 Token
+              <button className="mt-1 text-xs font-bold text-red-600 hover:text-red-800 underline">
+                配置 API Key
               </button>
             )}
           </div>
         </div>
       )}
 
-      {/* 分析结果 */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 z-0">
+      {/* 主内容区域 */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
+        
+        {/* 空状态 / 初始状态 */}
+        {status === "idle" && (
+            <div className="h-full flex flex-col items-center justify-center text-center p-4 opacity-60">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center text-3xl mb-4 grayscale">
+                    🔭
+                </div>
+                <h3 className="text-base font-semibold text-gray-700 mb-1">Ready to Discover</h3>
+                <p className="text-sm text-gray-500 max-w-[200px]">
+                    Navigate to a Reddit thread or Zhihu question and click Analyze.
+                </p>
+            </div>
+        )}
+
+        {/* 正在分析 */}
+        {isAnalyzing && (
+            <div className="h-full flex flex-col items-center justify-center p-8 space-y-6">
+                <div className="relative">
+                    <div className="w-16 h-16 border-4 border-gray-100 rounded-full" />
+                    <div className="absolute top-0 left-0 w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+                <div className="text-center space-y-2">
+                    <h3 className="text-base font-medium text-gray-900">
+                        {status === "extracting" ? "Extracting Context" : "Generating Insights"}
+                    </h3>
+                    <p className="text-sm text-gray-500 animate-pulse">
+                        Using AI to identify user needs...
+                    </p>
+                </div>
+            </div>
+        )}
+
+        {/* 分析完成：显示结果 */}
         {status === "completed" && (
-          <div className="space-y-5">
-            {/* 摘要 */}
+          <div className="space-y-6 animate-fade-in">
+            {/* 摘要卡片 */}
             {summary && (
-              <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-50">
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                  <span className="w-1 h-3 bg-brand-accent rounded-full mb-[1px]" />
-                  Summary
+              <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-purple-400 rounded-full" />
+                  Executive Summary
                 </h3>
-                <p className="text-sm text-gray-600 leading-relaxed font-poppins">
+                <p className="text-sm text-gray-600 leading-relaxed">
                   {summary}
                 </p>
               </div>
             )}
 
-            {/* 产品方向列表 */}
-            {demands.length > 0 && (
+            {/* 需求列表 */}
+            {demands.length > 0 ? (
               <div>
                 <div className="flex items-center justify-between mb-3 px-1">
-                  <h3 className="font-montserrat font-bold text-gray-800 flex items-center gap-2">
-                    Insights
-                    <span className="bg-brand-secondary/30 text-brand-accent text-xs px-2 py-0.5 rounded-full">
+                  <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                    Identified Opportunities
+                    <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-bold">
                       {demands.length}
                     </span>
                   </h3>
-                  <div className="flex gap-3 text-xs font-medium">
+                  <div className="flex gap-2 text-xs font-medium">
                     <button
                       onClick={selectAllDemands}
-                      className="text-brand-end hover:text-blue-600 transition-colors"
+                      className="text-blue-600 hover:text-blue-700 px-2 py-1 hover:bg-blue-50 rounded"
                     >
-                      All
+                      Select All
                     </button>
                     <button
                       onClick={deselectAllDemands}
-                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                      className="text-gray-400 hover:text-gray-600 px-2 py-1 hover:bg-gray-50 rounded"
                     >
-                      None
+                      Clear
                     </button>
                   </div>
                 </div>
+                
                 <div className="space-y-3">
                   {demands.map((demand) => (
                     <DemandCard
@@ -258,85 +257,31 @@ export function AnalysisView() {
                   ))}
                 </div>
               </div>
-            )}
-
-            {demands.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-10 text-center">
-                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-2xl mb-3 grayscale opacity-50">
-                  🤷‍♂️
-                </div>
-                <p className="text-gray-500 font-medium">No insights found.</p>
-                <p className="text-xs text-gray-400 mt-1">Try another page?</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 空状态 */}
-        {status === "idle" && (
-          <div className="flex flex-col items-center justify-center h-full text-center px-6">
-            {pageInfo?.platform === "unsupported" ? (
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-50">
-                <div className="text-5xl mb-4 grayscale opacity-80">🔭</div>
-                <h3 className="font-montserrat font-bold text-lg text-gray-800 mb-2">
-                  Not Supported
-                </h3>
-                <p className="text-sm text-gray-500 leading-relaxed">
-                  Currently optimized for{" "}
-                  <span className="font-bold text-gray-700">Reddit</span> &{" "}
-                  <span className="font-bold text-gray-700">Zhihu</span>.
-                </p>
-              </div>
             ) : (
-              <div className="group cursor-pointer" onClick={handleAnalyze}>
-                <div className="w-24 h-24 bg-gradient-to-tr from-brand-start/20 to-brand-end/20 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                  <div className="w-16 h-16 bg-gradient-to-tr from-brand-start to-brand-end rounded-full flex items-center justify-center text-3xl shadow-lg shadow-brand-end/30 animate-pulse-slow">
-                    🚀
-                  </div>
+                <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-200">
+                    <p className="text-sm text-gray-500">No specific demands found on this page.</p>
                 </div>
-                <h3 className="font-montserrat font-bold text-lg text-gray-800 mb-2">
-                  Ready to Analyze
-                </h3>
-                <p className="text-sm text-gray-400">
-                  Click the button above to start
-                </p>
-              </div>
             )}
-          </div>
-        )}
-
-        {/* 加载中 */}
-        {(status === "extracting" || status === "analyzing") && (
-          <div className="flex flex-col items-center justify-center h-full">
-            <div className="relative w-20 h-20 mb-6">
-              <div className="absolute inset-0 border-4 border-gray-100 rounded-full"></div>
-              <div className="absolute inset-0 border-4 border-brand-end border-t-transparent rounded-full animate-spin"></div>
-              <div className="absolute inset-0 flex items-center justify-center text-2xl animate-bounce">
-                🤔
-              </div>
-            </div>
-            <h3 className="font-montserrat font-bold text-lg text-gray-800 mb-1">
-              Thinking...
-            </h3>
-            <p className="text-sm text-gray-500">
-              {status === "extracting"
-                ? "Reading page content"
-                : "Analyzing market demand"}
-            </p>
           </div>
         )}
       </div>
 
-      {/* 底部操作栏 */}
+      {/* 底部保存栏 */}
       {status === "completed" && demands.length > 0 && (
-        <div className="p-4 border-t border-gray-100 bg-white/90 backdrop-blur-md z-10 sticky bottom-0">
+        <div className="flex-none p-4 bg-white border-t border-gray-100 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] z-20">
           <button
             onClick={handleSaveSelected}
             disabled={selectedDemandIds.length === 0}
-            className="w-full bg-status-success text-white py-3 px-4 rounded-xl shadow-lg shadow-status-success/30 hover:bg-green-500 hover:shadow-status-success/40 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:shadow-none disabled:transform-none font-bold text-sm flex items-center justify-center gap-2"
+            className={`
+                w-full py-3 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200
+                ${selectedDemandIds.length > 0 
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 hover:-translate-y-0.5" 
+                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                }
+            `}
           >
             <span>💾</span>
-            Save {selectedDemandIds.length} Insights
+            Save {selectedDemandIds.length} Selected Insights
           </button>
         </div>
       )}

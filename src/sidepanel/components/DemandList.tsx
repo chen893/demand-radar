@@ -50,19 +50,23 @@ export function DemandList() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* 搜索栏 */}
-      <div className="p-4 border-b">
-        <div className="relative">
+    <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden">
+       {/* Top Gradient Accent */}
+       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-purple-500 z-10" />
+
+      {/* 搜索与筛选栏 */}
+      <div className="flex-none p-4 bg-white border-b border-gray-100 shadow-sm z-10 space-y-3">
+        {/* Search Input */}
+        <div className="relative group">
           <input
             type="text"
-            placeholder="搜索产品方向..."
+            placeholder="Search insights..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
           />
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -76,74 +80,82 @@ export function DemandList() {
           </svg>
         </div>
 
-        {/* 筛选按钮 */}
-        <div className="mt-2 flex gap-2">
+        {/* Filter Chips */}
+        <div className="flex gap-2">
           <button
             onClick={() => setFilterStarred(!filterStarred)}
-            className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-              filterStarred
-                ? "bg-yellow-50 border-yellow-300 text-yellow-700"
-                : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-            }`}
+            className={`
+              flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border
+              ${filterStarred
+                ? "bg-yellow-50 border-yellow-200 text-yellow-700 shadow-sm"
+                : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+              }
+            `}
           >
-            ⭐ 收藏
+            <span className={filterStarred ? "text-yellow-500" : "text-gray-400"}>⭐</span>
+            Starred
           </button>
           <button
             onClick={() => setFilterArchived(!filterArchived)}
-            className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-              filterArchived
-                ? "bg-gray-100 border-gray-300 text-gray-700"
-                : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-            }`}
+            className={`
+              flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border
+              ${filterArchived
+                ? "bg-purple-50 border-purple-200 text-purple-700 shadow-sm"
+                : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+              }
+            `}
           >
-            📦 归档
+            <span className={filterArchived ? "text-purple-500" : "text-gray-400"}>📦</span>
+            Archived
           </button>
         </div>
       </div>
 
       {/* 错误提示 */}
       {error && (
-        <div className="mx-4 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+        <div className="mx-4 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between animate-fade-in">
           <span className="text-red-700 text-sm">{error}</span>
           <button
             onClick={clearError}
-            className="text-red-500 hover:text-red-700"
+            className="text-red-400 hover:text-red-700 transition-colors"
           >
-            ✕
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
       )}
 
       {/* 列表内容 */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
         {isLoading && (
-          <div className="flex items-center justify-center h-full">
-            <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+          <div className="flex items-center justify-center h-40">
+            <div className="w-8 h-8 border-2 border-gray-100 border-t-blue-500 rounded-full animate-spin"></div>
           </div>
         )}
 
         {!isLoading && demands.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400 p-8">
-            <div className="text-4xl mb-2">📭</div>
-            <div className="text-sm text-center">
-              {searchQuery
-                ? "没有找到匹配的产品方向"
-                : filterStarred
-                ? "没有收藏的产品方向"
-                : filterArchived
-                ? "没有归档的产品方向"
-                : "还没有保存任何产品方向"}
+          <div className="flex flex-col items-center justify-center h-64 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-3xl mb-4 grayscale opacity-60">
+                {searchQuery ? "🔍" : "📭"}
             </div>
-            {!searchQuery && !filterStarred && !filterArchived && (
-              <div className="text-xs text-gray-400 mt-1">
-                分析页面后保存产品方向
-              </div>
-            )}
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                {searchQuery ? "No matches found" : "Library is empty"}
+            </h3>
+            <p className="text-xs text-gray-500 max-w-[200px]">
+              {searchQuery
+                ? "Try adjusting your search terms."
+                : filterStarred
+                ? "No starred items yet."
+                : filterArchived
+                ? "No archived items."
+                : "Analyze pages to save new insights."}
+            </p>
           </div>
         )}
 
         {!isLoading && demands.length > 0 && (
-          <div className="p-4 space-y-2">
+          <div className="space-y-3">
             {demands.map((demand) => (
               <DemandListItem
                 key={demand.id}
@@ -163,8 +175,8 @@ export function DemandList() {
 
       {/* 底部统计 */}
       {!isLoading && demands.length > 0 && (
-        <div className="p-3 border-t text-xs text-gray-500 text-center">
-          共 {demands.length} 个产品方向
+        <div className="flex-none py-2 border-t border-gray-100 bg-white text-[10px] font-medium text-gray-400 text-center uppercase tracking-wider">
+          {demands.length} Items
         </div>
       )}
     </div>
@@ -189,57 +201,60 @@ function DemandListItem({
 }: DemandListItemProps) {
   return (
     <div
-      className="border rounded-lg bg-white p-3 hover:shadow-sm transition-shadow cursor-pointer"
+      className="group relative bg-white border border-gray-100 rounded-xl p-3 shadow-sm hover:shadow-md hover:border-blue-100 transition-all cursor-pointer"
       onClick={onClick}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-3">
+        {/* Main Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h4 className="font-medium text-sm text-gray-900 truncate">
-              {demand.solution.title}
-            </h4>
-            {demand.starred && (
-              <span className="text-yellow-500 text-xs">⭐</span>
-            )}
-            {demand.archived && (
-              <span className="text-xs text-gray-400">归档</span>
-            )}
-          </div>
-          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+            <div className="flex items-center gap-2 mb-1">
+                <h4 className="font-semibold text-sm text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                {demand.solution.title}
+                </h4>
+                {demand.archived && (
+                <span className="flex-shrink-0 px-1.5 py-0.5 bg-gray-100 text-gray-500 text-[10px] rounded">
+                    Archived
+                </span>
+                )}
+            </div>
+          
+          <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed mb-2">
             {demand.solution.description}
           </p>
-          <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-            {demand.tags.slice(0, 2).map((tag) => (
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {demand.tags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
-                className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded"
+                className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded border border-blue-100"
               >
                 {tag}
               </span>
             ))}
-            {demand.tags.length > 2 && (
-              <span className="text-xs text-gray-400">
-                +{demand.tags.length - 2}
-              </span>
-            )}
-            <span className="text-xs text-gray-400">
-              {formatRelativeTime(demand.createdAt)}
+            <span className="text-[10px] text-gray-400 flex items-center gap-1 ml-auto">
+                <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                {formatRelativeTime(demand.createdAt)}
             </span>
           </div>
         </div>
-        <div className="flex flex-col gap-1">
+
+        {/* Actions */}
+        <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onToggleStar();
             }}
-            className={`p-1 rounded hover:bg-gray-100 transition-colors ${
-              demand.starred ? "text-yellow-500" : "text-gray-300 hover:text-yellow-400"
+            className={`p-1.5 rounded-lg transition-colors ${
+              demand.starred 
+              ? "text-yellow-500 bg-yellow-50 hover:bg-yellow-100 opacity-100" // Always visible if starred
+              : "text-gray-400 hover:text-yellow-500 hover:bg-yellow-50"
             }`}
-            title={demand.starred ? "取消收藏" : "收藏"}
+            style={{ opacity: demand.starred ? 1 : undefined }}
+            title={demand.starred ? "Unstar" : "Star"}
           >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+            <svg className="w-4 h-4" fill={demand.starred ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
             </svg>
           </button>
           <button
@@ -247,16 +262,11 @@ function DemandListItem({
               e.stopPropagation();
               onDelete();
             }}
-            className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-            title="删除"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+            title="Delete"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              />
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
           </button>
         </div>

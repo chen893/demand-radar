@@ -115,7 +115,7 @@ export function DemandCard({
             {/* Bottom Meta (Competitors) */}
             {demand.validation.competitors.length > 0 && !expanded && (
               <div className="mt-2.5 flex items-center gap-2 text-[10px] text-gray-400">
-                <span className="uppercase tracking-wider font-semibold text-[9px]">VS</span>
+                <span className="uppercase tracking-wider font-semibold text-[9px]">对标</span>
                 <div className="flex flex-wrap gap-1">
                   {demand.validation.competitors.slice(0, 3).map((comp, i) => (
                     <span key={i} className="text-gray-600">
@@ -155,7 +155,7 @@ export function DemandCard({
           <div className="space-y-5">
             {/* Description */}
             <div>
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Description</div>
+              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">描述</div>
               <p className="text-sm text-gray-700 leading-relaxed font-normal">
                 {demand.solution.description}
               </p>
@@ -163,7 +163,7 @@ export function DemandCard({
 
             {/* Target User */}
             <div>
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Target User</div>
+              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">目标用户</div>
               <div className="flex items-start gap-2.5 bg-gray-50/80 p-3 rounded-lg border border-gray-100">
                 <span className="text-lg leading-none">🎯</span>
                 <p className="text-sm text-gray-700 leading-relaxed">
@@ -179,7 +179,7 @@ export function DemandCard({
                 <div>
                   <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-                    Pain Points
+                    用户痛点
                   </div>
                   <ul className="space-y-2">
                     {demand.validation.painPoints.map((point, i) => (
@@ -197,7 +197,7 @@ export function DemandCard({
                 <div>
                   <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
-                    Market Gaps
+                    市场空白
                   </div>
                   <ul className="space-y-2">
                     {demand.validation.competitorGaps.map((gap, i) => (
@@ -214,7 +214,7 @@ export function DemandCard({
             {/* Voice of User */}
             {demand.validation.quotes.length > 0 && (
               <div>
-                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Voice of User</div>
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">用户原声</div>
                 <div className="grid gap-2">
                   {demand.validation.quotes.map((quote, i) => (
                     <div key={i} className="relative bg-blue-50/50 p-3 rounded-lg border border-blue-100/50">

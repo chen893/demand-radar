@@ -121,7 +121,7 @@ export function AnalysisView() {
                 </span>
              </div>
              <h2 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2" title={pageInfo?.title}>
-                {pageInfo?.title || "Waiting for page..."}
+                {pageInfo?.title || "等待页面加载..."}
              </h2>
         </div>
 
@@ -142,13 +142,13 @@ export function AnalysisView() {
                     <>
                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         <span className="font-medium text-sm">
-                            {status === "extracting" ? "Reading content..." : "Analyzing..."}
+                            {status === "extracting" ? "读取内容中..." : "分析中..."}
                         </span>
                     </>
                 ) : (
                     <>
                         <span className="text-lg">✨</span>
-                        <span className="font-medium text-sm">Deep Analyze Page</span>
+                        <span className="font-medium text-sm">深度分析页面</span>
                     </>
                 )}
             </div>
@@ -179,9 +179,9 @@ export function AnalysisView() {
                 <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center text-3xl mb-4 grayscale">
                     🔭
                 </div>
-                <h3 className="text-base font-semibold text-gray-700 mb-1">Ready to Discover</h3>
+                <h3 className="text-base font-semibold text-gray-700 mb-1">准备探索</h3>
                 <p className="text-sm text-gray-500 max-w-[200px]">
-                    Navigate to a Reddit thread or Zhihu question and click Analyze.
+                    打开 Reddit 帖子或知乎问答，点击分析。
                 </p>
             </div>
         )}
@@ -195,10 +195,10 @@ export function AnalysisView() {
                 </div>
                 <div className="text-center space-y-2">
                     <h3 className="text-base font-medium text-gray-900">
-                        {status === "extracting" ? "Extracting Context" : "Generating Insights"}
+                        {status === "extracting" ? "提取上下文中" : "生成洞察中"}
                     </h3>
                     <p className="text-sm text-gray-500 animate-pulse">
-                        Using AI to identify user needs...
+                        正在使用 AI 识别用户需求...
                     </p>
                 </div>
             </div>
@@ -212,7 +212,7 @@ export function AnalysisView() {
               <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
                 <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 bg-purple-400 rounded-full" />
-                  Executive Summary
+                  执行摘要
                 </h3>
                 <p className="text-sm text-gray-600 leading-relaxed">
                   {summary}
@@ -225,7 +225,7 @@ export function AnalysisView() {
               <div>
                 <div className="flex items-center justify-between mb-3 px-1">
                   <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-                    Identified Opportunities
+                    发现的机会
                     <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-bold">
                       {demands.length}
                     </span>
@@ -235,13 +235,13 @@ export function AnalysisView() {
                       onClick={selectAllDemands}
                       className="text-blue-600 hover:text-blue-700 px-2 py-1 hover:bg-blue-50 rounded"
                     >
-                      Select All
+                      全选
                     </button>
                     <button
                       onClick={deselectAllDemands}
                       className="text-gray-400 hover:text-gray-600 px-2 py-1 hover:bg-gray-50 rounded"
                     >
-                      Clear
+                      清空
                     </button>
                   </div>
                 </div>
@@ -259,7 +259,7 @@ export function AnalysisView() {
               </div>
             ) : (
                 <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-200">
-                    <p className="text-sm text-gray-500">No specific demands found on this page.</p>
+                    <p className="text-sm text-gray-500">此页面未发现具体需求。</p>
                 </div>
             )}
           </div>
@@ -281,7 +281,7 @@ export function AnalysisView() {
             `}
           >
             <span>💾</span>
-            Save {selectedDemandIds.length} Selected Insights
+            保存 {selectedDemandIds.length} 个精选洞察
           </button>
         </div>
       )}

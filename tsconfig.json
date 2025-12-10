@@ -42,10 +42,10 @@
   "include": [
     ".plasmo/index.d.ts",
     "src/**/*",
-    ".plasmo/**/*",
     "*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    ".plasmo/static"
   ]
 }

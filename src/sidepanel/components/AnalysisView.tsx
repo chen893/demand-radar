@@ -119,27 +119,39 @@ export function AnalysisView() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-slate-50 relative">
+      {/* Background blobs for depth */}
+      <div className="absolute top-20 left-10 w-32 h-32 bg-brand-start/5 rounded-full blur-2xl pointer-events-none" />
+      <div className="absolute bottom-40 right-10 w-40 h-40 bg-brand-end/5 rounded-full blur-2xl pointer-events-none" />
+
       {/* 当前页面信息 */}
-      <div className="p-4 border-b bg-gray-50">
-        <div className="text-xs text-gray-500 mb-1">当前页面</div>
-        <div className="font-medium text-sm truncate" title={pageInfo?.title}>
-          {pageInfo?.title || "未检测到页面"}
-        </div>
-        {pageInfo?.platform && (
-          <div className="mt-1 flex items-center gap-2">
-            <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
+      <div className="mx-4 mt-4 p-4 bg-white/60 backdrop-blur-sm border border-white shadow-sm rounded-2xl relative z-0">
+        <div className="flex justify-between items-start mb-1">
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+            Current Page
+          </div>
+          {pageInfo?.platform && (
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                pageInfo.canAnalyze
+                  ? "bg-brand-end/10 text-brand-end"
+                  : "bg-status-warning/10 text-status-warning"
+              }`}
+            >
               {getPlatformName(pageInfo.platform)}
             </span>
-            {!pageInfo.canAnalyze && (
-              <span className="text-xs text-orange-600">不支持分析</span>
-            )}
-          </div>
-        )}
+          )}
+        </div>
+        <div
+          className="font-montserrat font-bold text-gray-800 line-clamp-2 leading-tight"
+          title={pageInfo?.title}
+        >
+          {pageInfo?.title || "未检测到页面"}
+        </div>
       </div>
 
       {/* 操作按钮 */}
-      <div className="p-4 border-b flex gap-2">
+      <div className="mx-4 mt-3 flex gap-3 z-0">
         <button
           onClick={handleAnalyze}
           disabled={
@@ -147,11 +159,22 @@ export function AnalysisView() {
             status === "analyzing" ||
             !pageInfo?.canAnalyze
           }
-          className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+          className="flex-1 relative overflow-hidden group bg-gradient-to-r from-brand-start to-brand-end p-[1px] rounded-xl shadow-lg shadow-brand-end/20 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all hover:shadow-brand-end/40 hover:-translate-y-0.5"
         >
-          {status === "extracting" && "提取中..."}
-          {status === "analyzing" && "分析中..."}
-          {status !== "extracting" && status !== "analyzing" && "分析此页面"}
+          <div className="bg-white/10 backdrop-blur-sm h-full w-full rounded-[11px] px-4 py-3 flex items-center justify-center gap-2 group-hover:bg-transparent transition-colors">
+            {status === "extracting" || status === "analyzing" ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <span className="text-lg">✨</span>
+            )}
+            <span className="font-montserrat font-bold text-white tracking-wide text-sm">
+              {status === "extracting"
+                ? "Extracting..."
+                : status === "analyzing"
+                  ? "Analyzing..."
+                  : "Analyze Page"}
+            </span>
+          </div>
         </button>
         <button
           onClick={handleQuickSave}
@@ -160,36 +183,40 @@ export function AnalysisView() {
             status === "analyzing" ||
             !pageInfo?.canAnalyze
           }
-          className="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-colors"
-          title="保存页面内容，稍后分析"
+          className="px-4 bg-white text-gray-600 rounded-xl shadow-sm border border-gray-100 hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50 font-medium text-sm flex items-center justify-center gap-1"
+          title="Save Content"
         >
-          快速保存
+          <span>📥</span>
         </button>
       </div>
 
       {/* 错误提示 */}
       {status === "error" && error && (
-        <div className="mx-4 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <div className="text-red-700 text-sm">{error}</div>
-          {errorAction === "settings" && (
-            <button className="mt-2 text-sm text-blue-600 hover:underline">
-              前往设置
-            </button>
-          )}
+        <div className="mx-4 mt-4 p-4 bg-status-error/5 border border-status-error/20 rounded-2xl flex items-start gap-3">
+          <div className="text-status-error mt-0.5">⚠️</div>
+          <div className="flex-1">
+            <div className="text-status-error font-medium text-sm">{error}</div>
+            {errorAction === "settings" && (
+              <button className="mt-1 text-xs font-bold text-status-error/80 hover:text-status-error underline">
+                去设置 Token
+              </button>
+            )}
+          </div>
         </div>
       )}
 
       {/* 分析结果 */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 z-0">
         {status === "completed" && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {/* 摘要 */}
             {summary && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">
-                  页面摘要
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-50">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                  <span className="w-1 h-3 bg-brand-accent rounded-full mb-[1px]" />
+                  Summary
                 </h3>
-                <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-600 leading-relaxed font-poppins">
                   {summary}
                 </p>
               </div>
@@ -198,27 +225,29 @@ export function AnalysisView() {
             {/* 产品方向列表 */}
             {demands.length > 0 && (
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-700">
-                    识别到 {demands.length} 个产品方向
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <h3 className="font-montserrat font-bold text-gray-800 flex items-center gap-2">
+                    Insights
+                    <span className="bg-brand-secondary/30 text-brand-accent text-xs px-2 py-0.5 rounded-full">
+                      {demands.length}
+                    </span>
                   </h3>
-                  <div className="flex gap-2 text-xs">
+                  <div className="flex gap-3 text-xs font-medium">
                     <button
                       onClick={selectAllDemands}
-                      className="text-blue-600 hover:underline"
+                      className="text-brand-end hover:text-blue-600 transition-colors"
                     >
-                      全选
+                      All
                     </button>
-                    <span className="text-gray-300">|</span>
                     <button
                       onClick={deselectAllDemands}
-                      className="text-blue-600 hover:underline"
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
                     >
-                      取消
+                      None
                     </button>
                   </div>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {demands.map((demand) => (
                     <DemandCard
                       key={demand.id}
@@ -232,8 +261,12 @@ export function AnalysisView() {
             )}
 
             {demands.length === 0 && (
-              <div className="text-center py-8 text-gray-500 text-sm">
-                未识别到明显的产品方向
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-2xl mb-3 grayscale opacity-50">
+                  🤷‍♂️
+                </div>
+                <p className="text-gray-500 font-medium">No insights found.</p>
+                <p className="text-xs text-gray-400 mt-1">Try another page?</p>
               </div>
             )}
           </div>
@@ -241,24 +274,33 @@ export function AnalysisView() {
 
         {/* 空状态 */}
         {status === "idle" && (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400 px-4">
+          <div className="flex flex-col items-center justify-center h-full text-center px-6">
             {pageInfo?.platform === "unsupported" ? (
-              <>
-                <div className="text-4xl mb-3">🚫</div>
-                <div className="text-sm text-gray-600 text-center mb-2">
-                  当前网站不支持分析
-                </div>
-                <div className="text-xs text-gray-500 text-center">
-                  目前仅支持 Reddit 和知乎
-                  <br />
-                  请导航到支持的网站后使用
-                </div>
-              </>
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-50">
+                <div className="text-5xl mb-4 grayscale opacity-80">🔭</div>
+                <h3 className="font-montserrat font-bold text-lg text-gray-800 mb-2">
+                  Not Supported
+                </h3>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  Currently optimized for{" "}
+                  <span className="font-bold text-gray-700">Reddit</span> &{" "}
+                  <span className="font-bold text-gray-700">Zhihu</span>.
+                </p>
+              </div>
             ) : (
-              <>
-                <div className="text-4xl mb-2">🔍</div>
-                <div className="text-sm">点击"分析此页面"开始</div>
-              </>
+              <div className="group cursor-pointer" onClick={handleAnalyze}>
+                <div className="w-24 h-24 bg-gradient-to-tr from-brand-start/20 to-brand-end/20 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <div className="w-16 h-16 bg-gradient-to-tr from-brand-start to-brand-end rounded-full flex items-center justify-center text-3xl shadow-lg shadow-brand-end/30 animate-pulse-slow">
+                    🚀
+                  </div>
+                </div>
+                <h3 className="font-montserrat font-bold text-lg text-gray-800 mb-2">
+                  Ready to Analyze
+                </h3>
+                <p className="text-sm text-gray-400">
+                  Click the button above to start
+                </p>
+              </div>
             )}
           </div>
         )}
@@ -266,25 +308,35 @@ export function AnalysisView() {
         {/* 加载中 */}
         {(status === "extracting" || status === "analyzing") && (
           <div className="flex flex-col items-center justify-center h-full">
-            <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mb-3"></div>
-            <div className="text-sm text-gray-500">
-              {status === "extracting"
-                ? "正在提取页面内容..."
-                : "正在分析产品方向..."}
+            <div className="relative w-20 h-20 mb-6">
+              <div className="absolute inset-0 border-4 border-gray-100 rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-brand-end border-t-transparent rounded-full animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center text-2xl animate-bounce">
+                🤔
+              </div>
             </div>
+            <h3 className="font-montserrat font-bold text-lg text-gray-800 mb-1">
+              Thinking...
+            </h3>
+            <p className="text-sm text-gray-500">
+              {status === "extracting"
+                ? "Reading page content"
+                : "Analyzing market demand"}
+            </p>
           </div>
         )}
       </div>
 
       {/* 底部操作栏 */}
       {status === "completed" && demands.length > 0 && (
-        <div className="p-4 border-t bg-white">
+        <div className="p-4 border-t border-gray-100 bg-white/90 backdrop-blur-md z-10 sticky bottom-0">
           <button
             onClick={handleSaveSelected}
             disabled={selectedDemandIds.length === 0}
-            className="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+            className="w-full bg-status-success text-white py-3 px-4 rounded-xl shadow-lg shadow-status-success/30 hover:bg-green-500 hover:shadow-status-success/40 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:shadow-none disabled:transform-none font-bold text-sm flex items-center justify-center gap-2"
           >
-            保存选中的 {selectedDemandIds.length} 个方向
+            <span>💾</span>
+            Save {selectedDemandIds.length} Insights
           </button>
         </div>
       )}

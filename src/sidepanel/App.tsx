@@ -3,8 +3,10 @@
  */
 
 import React, { useEffect, useState } from "react";
+import { Toaster } from "react-hot-toast";
 import {
   AnalysisView,
+  ConfirmProvider,
   DemandList,
   SettingsView,
   TaskIndicator,
@@ -189,10 +191,33 @@ export default function App() {
   };
 
   return (
-    <div className="w-full h-screen flex flex-col bg-surface-50 relative text-slate-900 font-sans selection:bg-brand-100/50 overflow-hidden">
-      {/* Background Decor */}
-      <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[30%] bg-brand-200/20 rounded-full blur-[80px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent-100/20 rounded-full blur-[80px] pointer-events-none" />
+    <ConfirmProvider>
+      <div className="w-full h-screen flex flex-col bg-surface-50 relative text-slate-900 font-sans selection:bg-brand-100/50 overflow-hidden">
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            className: "glass-card !border-brand-100/50 !text-slate-700",
+            style: {
+              background: "rgba(255, 255, 255, 0.9)",
+              backdropFilter: "blur(10px)",
+            },
+            success: {
+              iconTheme: {
+                primary: "#10b981",
+                secondary: "white",
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: "#ef4444",
+                secondary: "white",
+              },
+            },
+          }}
+        />
+        {/* Background Decor */}
+        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[30%] bg-brand-200/20 rounded-full blur-[80px] pointer-events-none" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent-100/20 rounded-full blur-[80px] pointer-events-none" />
 
       {/* Header */}
       <header className="px-5 py-3 glass sticky top-0 z-30 flex items-center justify-between transition-all duration-300">
@@ -304,7 +329,8 @@ export default function App() {
           />
         </div>
       </nav>
-    </div>
+      </div>
+    </ConfirmProvider>
   );
 }
 

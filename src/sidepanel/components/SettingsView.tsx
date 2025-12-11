@@ -4,12 +4,14 @@
  */
 
 import React, { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 import {
   useConfigStore,
   getProviderDisplayName,
   getProviderDefaultModel,
   getProviderDocUrl,
 } from "../stores";
+import { useConfirm } from "./ConfirmProvider";
 import type { LLMConfig } from "@/shared/types/config";
 import { formatSize } from "@/shared/utils/text-utils";
 import { MessageType } from "@/shared/types/messages";
@@ -35,6 +37,7 @@ export function SettingsView() {
     fetchStorageUsage,
     clearTestResult,
   } = useConfigStore();
+  const { confirm } = useConfirm();
 
   // 表单状态
   const [provider, setProvider] = useState<LLMProvider>(
@@ -61,12 +64,13 @@ export function SettingsView() {
     }
   }, [llmConfig]);
 
-  // 切换服务商时重置模型名称
-  useEffect(() => {
-    if (provider !== "custom") {
-      setModelName(getProviderDefaultModel(provider));
+  // 切换服务商
+  const handleProviderChange = (newProvider: LLMProvider) => {
+    setProvider(newProvider);
+    if (newProvider !== "custom") {
+      setModelName(getProviderDefaultModel(newProvider));
     }
-  }, [provider]);
+  };
 
   // 测试连接
   const handleTest = async () => {
@@ -75,7 +79,7 @@ export function SettingsView() {
       provider,
       apiKey,
       baseUrl: provider === "custom" ? baseUrl : undefined,
-      modelName: provider === "custom" ? modelName : undefined,
+      modelName, // 始终传递 modelName
     });
   };
 
@@ -85,9 +89,9 @@ export function SettingsView() {
       provider,
       apiKey,
       baseUrl: provider === "custom" ? baseUrl : undefined,
-      modelName: provider === "custom" ? modelName : undefined,
+      modelName, // 始终保存 modelName
     });
-    alert("配置已保存");
+    toast.success("配置已保存");
   };
 
   // 导出数据
@@ -110,16 +114,20 @@ export function SettingsView() {
       }
     } catch (error) {
       console.error("Export failed:", error);
-      alert("导出失败");
+      toast.error("导出失败");
     }
   };
 
   // 清空数据
   const handleClearData = async () => {
-    if (!confirm("确定要清空所有数据吗？此操作不可恢复！")) {
-      return;
-    }
-    if (!confirm("再次确认：这将删除所有保存的产品方向和分析记录！")) {
+    const isConfirmed = await confirm({
+      title: "清空所有数据",
+      message: "确定要清空所有数据吗？这将永久删除所有保存的产品方向和分析记录！此操作不可恢复。",
+      confirmText: "确定清空",
+      isDestructive: true,
+    });
+    
+    if (!isConfirmed) {
       return;
     }
 
@@ -128,10 +136,10 @@ export function SettingsView() {
         type: MessageType.CLEAR_DATA,
       });
       await fetchStorageUsage();
-      alert("数据已清空");
+      toast.success("数据已清空");
     } catch (error) {
       console.error("Clear data failed:", error);
-      alert("清空失败");
+      toast.error("清空失败");
     }
   };
 
@@ -171,7 +179,7 @@ export function SettingsView() {
                       name="provider"
                       value={p.value}
                       checked={provider === p.value}
-                      onChange={() => setProvider(p.value)}
+                      onChange={() => handleProviderChange(p.value)}
                       className="sr-only" 
                     />
                     <div className="flex-1 flex items-center justify-between">
@@ -227,9 +235,23 @@ export function SettingsView() {
               </div>
             </div>
 
-            {/* Custom Provider Fields */}
+            {/* Model Name Input (Always Visible) */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                模型名称 <span className="text-gray-400 font-normal normal-case">(默认为 {getProviderDefaultModel(provider) || "gpt-4o-mini"})</span>
+              </label>
+              <input
+                type="text"
+                value={modelName}
+                onChange={(e) => setModelName(e.target.value)}
+                placeholder={getProviderDefaultModel(provider)}
+                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            {/* Custom Provider Base URL */}
             {provider === "custom" && (
-              <div className="grid grid-cols-1 gap-4 pt-2 animate-fade-in">
+              <div className="pt-2 animate-fade-in">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                     Base URL <span className="text-red-500">*</span>
@@ -239,18 +261,6 @@ export function SettingsView() {
                     value={baseUrl}
                     onChange={(e) => setBaseUrl(e.target.value)}
                     placeholder="https://api.example.com/v1"
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                    模型名称 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={modelName}
-                    onChange={(e) => setModelName(e.target.value)}
-                    placeholder="gpt-4o-mini"
                     className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                   />
                 </div>

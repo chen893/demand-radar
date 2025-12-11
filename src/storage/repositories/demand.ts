@@ -69,6 +69,17 @@ export class DemandRepository {
   }
 
   /**
+   * 根据 ID 列表批量获取产品方向（保持传入顺序）
+   */
+  async getByIds(ids: string[]): Promise<Demand[]> {
+    if (ids.length === 0) return [];
+    const results = await db.demands.bulkGet(ids);
+    return ids
+      .map((id, idx) => results[idx] || undefined)
+      .filter((demand): demand is Demand => demand !== undefined);
+  }
+
+  /**
    * 获取所有产品方向
    */
   async getAll(
@@ -179,11 +190,11 @@ export class DemandRepository {
   /**
    * 批量更新分组信息
    */
-  async updateGroup(demandIds: string[], groupId: string, groupName: string): Promise<void> {
+  async updateGroup(demandIds: string[], groupId: string | null, groupName: string | null): Promise<void> {
     const updates = demandIds.map((id) =>
       db.demands.update(id, {
-        groupId,
-        groupName,
+        groupId: groupId ?? undefined,
+        groupName: groupName ?? undefined,
         updatedAt: new Date(),
       })
     );

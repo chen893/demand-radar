@@ -87,4 +87,5 @@ export type { IPlatformAdapter, ExtractionResult };
 export { BasePlatformAdapter } from "./base";
 export { RedditAdapter } from "./reddit";
 export { ZhihuAdapter } from "./zhihu";
+export { TwitterAdapter } from "./twitter";
 export { GenericAdapter } from "./generic";

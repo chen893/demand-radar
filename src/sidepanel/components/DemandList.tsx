@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import { useDemandsStore, useFilteredDemands } from "../stores";
 import { DemandDetail } from "./DemandDetail";
 import { useConfirm } from "./ConfirmProvider";
+import { ActionSheet } from "./ActionSheet";
 import type { Demand } from "@/shared/types/demand";
 import type { DemandGroup } from "@/shared/types/demand-group";
 import { MessageType } from "@/shared/types/messages";
@@ -38,6 +39,21 @@ export function DemandList() {
   const demands = useFilteredDemands();
   const [searchInput, setSearchInput] = useState(searchQuery);
   const [dedupSuggestions, setDedupSuggestions] = useState<DemandGroup[]>([]);
+  const [isDedupLoading, setIsDedupLoading] = useState(false);
+  const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null);
+
+  // 获取已分组的需求ID集合
+  const groupedDemandIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    groups.forEach((g) => g.demandIds.forEach((id) => ids.add(id)));
+    return ids;
+  }, [groups]);
+
+  // 过滤掉已分组的需求
+  const ungroupedDemands = React.useMemo(
+    () => demands.filter((d) => !groupedDemandIds.has(d.id)),
+    [demands, groupedDemandIds]
+  );
 
   // 初始化加载
   useEffect(() => {
@@ -54,26 +70,34 @@ export function DemandList() {
   }, [searchInput]);
 
   // 去重分析
-  const canDedup = demands.length >= 5;
+  const canDedup = ungroupedDemands.length >= 5;
   const handleDedup = async () => {
-    if (!canDedup) return;
-    const response = await chrome.runtime.sendMessage({
-      type: MessageType.DEDUP_ANALYZE_START,
-    });
-    if (response?.success) {
-      const groups = (response.data.groups || []).map(
-        (g: any): DemandGroup => ({
-          id: g.suggestedName || g.demandIds.join("-"),
-          name: g.suggestedName,
-          demandIds: g.demandIds,
-          commonPainPoints: g.commonPainPoints || [],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-      );
-      setDedupSuggestions(groups);
-    } else {
-      toast.error(response?.error || "去重分析失败");
+    if (!canDedup || isDedupLoading) return;
+    setIsDedupLoading(true);
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: MessageType.DEDUP_ANALYZE_START,
+        payload: {
+          demandIds: ungroupedDemands.map((d) => d.id),
+        },
+      });
+      if (response?.success) {
+        const groups = (response.data.groups || []).map(
+          (g: any): DemandGroup => ({
+            id: g.suggestedName || g.demandIds.join("-"),
+            name: g.suggestedName,
+            demandIds: g.demandIds,
+            commonPainPoints: g.commonPainPoints || [],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+        );
+        setDedupSuggestions(groups);
+      } else {
+        toast.error(response?.error || "去重分析失败");
+      }
+    } finally {
+      setIsDedupLoading(false);
     }
   };
 
@@ -100,6 +124,60 @@ export function DemandList() {
 
   const handleSkipGroup = (groupId: string) => {
     setDedupSuggestions((prev) => prev.filter((g) => g.id !== groupId));
+  };
+
+  // 分组操作
+  const handleOpenGroup = (groupId: string) => {
+    const group = groups.find((g) => g.id === groupId);
+    if (group && group.demandIds.length > 0) {
+      // 选中分组中的第一个需求来查看
+      selectDemand(group.demandIds[0]);
+    }
+  };
+
+  const handleDeleteGroup = (groupId: string) => {
+    setDeleteGroupId(groupId);
+  };
+
+  const handleGroupAction = async (actionId: string) => {
+    if (!deleteGroupId) return;
+
+    const groupId = deleteGroupId;
+    setDeleteGroupId(null);
+
+    if (actionId === "ungroup") {
+      const response = await chrome.runtime.sendMessage({
+        type: MessageType.DELETE_GROUP,
+        payload: groupId,
+      });
+      if (response?.success) {
+        fetchGroups();
+        fetchDemands();
+        toast.success("分组已解除");
+      } else {
+        toast.error(response?.error || "解除分组失败");
+      }
+    } else if (actionId === "delete-all") {
+      const isConfirmed = await confirm({
+        title: "删除确认",
+        message: "确定删除分组内的所有需求？此操作不可恢复。",
+        confirmText: "删除",
+        isDestructive: true,
+      });
+      if (isConfirmed) {
+        const response = await chrome.runtime.sendMessage({
+          type: MessageType.DELETE_GROUP_WITH_DEMANDS,
+          payload: groupId,
+        });
+        if (response?.success) {
+          fetchGroups();
+          fetchDemands();
+          toast.success(`已删除 ${response.data?.deletedCount || 0} 个需求`);
+        } else {
+          toast.error(response?.error || "删除失败");
+        }
+      }
+    }
   };
 
   // 如果选中了需求，显示详情
@@ -160,11 +238,12 @@ export function DemandList() {
           <div className="w-px h-6 bg-slate-200/60 mx-1 self-center" />
 
           <FilterChip
-            active={false}
+            active={isDedupLoading}
             onClick={handleDedup}
-            disabled={!canDedup}
-            icon="🧩"
-            label="智能去重"
+            disabled={!canDedup || isDedupLoading}
+            icon={isDedupLoading ? "⏳" : "🧩"}
+            label={isDedupLoading ? "分析中..." : "智能去重"}
+            activeClass="bg-blue-50 text-blue-700 border-blue-200 shadow-sm"
             disabledClass="opacity-50 cursor-not-allowed"
           />
         </div>
@@ -219,8 +298,8 @@ export function DemandList() {
               <DemandGroupCard
                 key={group.id}
                 group={group}
-                onOpen={() => {}}
-                onDelete={() => {}}
+                onOpen={handleOpenGroup}
+                onDelete={handleDeleteGroup}
               />
             ))}
           </div>
@@ -232,7 +311,7 @@ export function DemandList() {
           </div>
         )}
 
-        {!isLoading && demands.length === 0 && (
+        {!isLoading && ungroupedDemands.length === 0 && groups.length === 0 && (
           <div className="flex flex-col items-center justify-center h-[50vh] text-center">
             <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-3xl mb-4 grayscale opacity-60 shadow-inner">
               {searchQuery ? "🔍" : "📭"}
@@ -252,14 +331,19 @@ export function DemandList() {
           </div>
         )}
 
-        {!isLoading && demands.length > 0 && (
+        {!isLoading && ungroupedDemands.length > 0 && (
           <div className="space-y-3">
             {groups.length === 0 && dedupSuggestions.length === 0 && (
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">
                 全部洞察
               </h3>
             )}
-            {demands.map((demand, idx) => (
+            {(groups.length > 0 || dedupSuggestions.length > 0) && (
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">
+                未分组洞察
+              </h3>
+            )}
+            {ungroupedDemands.map((demand, idx) => (
               <div
                 key={demand.id}
                 className={`animate-fade-in-up delay-${Math.min(idx * 50, 300)}`}
@@ -294,8 +378,32 @@ export function DemandList() {
       {!isLoading && demands.length > 0 && (
         <div className="absolute bottom-0 left-0 right-0 py-2 glass border-t border-white/60 text-[10px] font-medium text-slate-400 text-center uppercase tracking-wider pointers-events-none z-10">
           {demands.length} 个条目
+          {groups.length > 0 && ` · ${groups.length} 个分组`}
         </div>
       )}
+
+      {/* 分组操作选择 */}
+      <ActionSheet
+        isOpen={!!deleteGroupId}
+        title="选择操作"
+        options={[
+          {
+            id: "ungroup",
+            label: "解除分组",
+            description: "保留需求，仅解除分组关系",
+            icon: "📤",
+          },
+          {
+            id: "delete-all",
+            label: "删除所有需求",
+            description: "删除分组及其包含的所有需求",
+            icon: "🗑️",
+            isDestructive: true,
+          },
+        ]}
+        onSelect={handleGroupAction}
+        onCancel={() => setDeleteGroupId(null)}
+      />
     </div>
   );
 }

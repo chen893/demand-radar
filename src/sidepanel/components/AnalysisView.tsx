@@ -128,6 +128,8 @@ export function AnalysisView() {
 
       if (response.success) {
         toast.success(`已保存 ${response.data.savedCount} 个产品方向`);
+        // 清空选中状态，防止重复保存
+        deselectAllDemands();
       } else {
         toast.error(response.error || "保存失败");
       }

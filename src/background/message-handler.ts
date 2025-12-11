@@ -20,6 +20,7 @@ import {
   type MessageResponse,
   type AnalysisResultPayload,
   type AnalysisErrorPayload,
+  type DedupAnalyzePayload,
 } from "@/shared/types/messages";
 import type { Extraction } from "@/shared/types/extraction";
 import type { Demand, DemandInput } from "@/shared/types/demand";
@@ -116,9 +117,13 @@ export class MessageHandler {
 
         // 去重
         case MessageType.DEDUP_ANALYZE_START:
-          return await this.handleDedupAnalyze();
+          return await this.handleDedupAnalyze(message.payload as DedupAnalyzePayload | undefined);
         case MessageType.DEDUP_CONFIRM:
           return await this.handleDedupConfirm(message.payload as { suggestedName: string; demandIds: string[]; commonPainPoints?: string[] });
+        case MessageType.DELETE_GROUP:
+          return await this.handleDeleteGroup(message.payload as string);
+        case MessageType.DELETE_GROUP_WITH_DEMANDS:
+          return await this.handleDeleteGroupWithDemands(message.payload as string);
 
         default:
           return {
@@ -736,25 +741,38 @@ export class MessageHandler {
   /**
    * 去重分析
    */
-  private async handleDedupAnalyze(): Promise<MessageResponse> {
+  private async handleDedupAnalyze(payload?: DedupAnalyzePayload): Promise<MessageResponse> {
     const config = await configRepo.getAppConfig();
     if (!config.llm?.apiKey) {
       return { success: false, error: "LLM not configured" };
     }
     llmService.setConfig(config.llm);
 
-    const demands = await demandRepo.getAll({ archived: false });
+    const selectedIds = payload?.demandIds?.filter(Boolean) || [];
+    if (selectedIds.length === 0) {
+      return { success: false, error: "No demands selected" };
+    }
+
+    const demands = await demandRepo.getByIds(selectedIds);
     if (demands.length < 5) {
       return { success: false, error: "Not enough demands" };
     }
 
-    const formatted = demands.map((d) => ({
-      id: d.id,
-      title: d.solution.title,
-      description: d.solution.description,
-      targetUser: d.solution.targetUser,
-      differentiators: d.solution.keyDifferentiators,
-    }));
+    const demandMap = new Map(demands.map((d) => [d.id, d]));
+    const formatted = selectedIds
+      .map((id) => demandMap.get(id))
+      .filter((d): d is Demand => Boolean(d))
+      .map((d) => ({
+        id: d.id,
+        title: d.solution.title,
+        description: d.solution.description,
+        targetUser: d.solution.targetUser,
+        differentiators: d.solution.keyDifferentiators,
+      }));
+
+    if (formatted.length < 5) {
+      return { success: false, error: "Not enough demands" };
+    }
 
     const result = await this.dedupService.analyze(formatted, config.llm);
     return { success: true, data: result };
@@ -767,6 +785,58 @@ export class MessageHandler {
     const group = await demandGroupRepo.create(payload.suggestedName, payload.demandIds, payload.commonPainPoints || []);
     await demandRepo.updateGroup(payload.demandIds, group.id, group.name);
     return { success: true, data: group };
+  }
+
+  /**
+   * 删除分组（解除分组）
+   */
+  private async handleDeleteGroup(groupId: string): Promise<MessageResponse> {
+    try {
+      // 获取分组信息
+      const group = await demandGroupRepo.getById(groupId);
+      if (!group) {
+        return { success: false, error: "分组不存在" };
+      }
+
+      // 清除需求的分组关联
+      await demandRepo.updateGroup(group.demandIds, null, null);
+
+      // 删除分组
+      await demandGroupRepo.delete(groupId);
+
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "删除分组失败",
+      };
+    }
+  }
+
+  /**
+   * 删除分组及其所有需求
+   */
+  private async handleDeleteGroupWithDemands(groupId: string): Promise<MessageResponse> {
+    try {
+      // 获取分组信息
+      const group = await demandGroupRepo.getById(groupId);
+      if (!group) {
+        return { success: false, error: "分组不存在" };
+      }
+
+      // 删除分组内的所有需求
+      await demandRepo.deleteMany(group.demandIds);
+
+      // 删除分组
+      await demandGroupRepo.delete(groupId);
+
+      return { success: true, data: { deletedCount: group.demandIds.length } };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "删除分组失败",
+      };
+    }
   }
 
   /**

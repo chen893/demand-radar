@@ -6,79 +6,88 @@
 /**
  * 解决方案提炼 Prompt
  */
-export const SOLUTION_EXTRACTION_PROMPT = `你是一个产品机会分析专家。请从以下用户讨论内容中提炼可能的产品方向。
+export const SOLUTION_EXTRACTION_PROMPT = `# 角色
+你是产品机会分析专家，擅长从用户讨论中识别未被满足的需求和潜在产品方向。
 
-【输入内容】
+# 输入
 {content}
 
-【任务】
-- 提炼不超过 3 个产品方向，优先输出价值最高的方向。
-- 每个方向都要有可验证的依据，不要虚构或外推。
+# 任务
+从输入内容中提炼 0-3 个产品方向，按以下优先级排序：
+1. 痛点强度：用户表达的挫败感/抱怨程度
+2. 出现频次：多人提及或反复讨论的问题
+3. 现有方案缺陷：明确指出竞品不足之处
 
-【输出格式（仅 JSON）】
-请只输出一个 JSON 对象，不要添加 Markdown 代码块或额外解释，字段定义如下：
+# 核心约束
+- **证据优先**：所有字段必须有原文依据，禁止推测或虚构
+- **宁缺毋滥**：找不到有效信号时，demands 返回空数组
+- **精准引用**：quotes 必须是原文片段，保留原始表述
+
+# 输出
+仅输出 JSON，禁止 Markdown 代码块、注释或额外文字。
 {
-  "summary": "页面内容摘要，100-200 字，覆盖主要讨论点",
+  "summary": "string, 100-200字, 客观概括讨论主题和关键观点",
   "demands": [
     {
       "solution": {
-        "title": "产品名称（1 句话）",
-        "description": "详细描述，2-3 句话",
-        "targetUser": "目标用户",
-        "keyDifferentiators": ["差异点1", "差异点2"]
+        "title": "string, 产品方向名称, 10字以内",
+        "description": "string, 产品定位描述, 50-100字",
+        "targetUser": "string, 目标用户画像",
+        "keyDifferentiators": ["string, 核心差异点, 2-4项"]
       },
       "validation": {
-        "painPoints": ["用户痛点，引用原文语境"],
-        "competitors": ["竞品名称，如无填空数组"],
-        "competitorGaps": ["竞品不足或缺口"],
-        "quotes": ["原文直接引用，逐条列出，勿编造"]
+        "painPoints": ["string, 用户痛点, 需对应原文语境"],
+        "competitors": ["string, 提及的竞品, 无则为空数组"],
+        "competitorGaps": ["string, 竞品缺陷或用户不满"],
+        "quotes": ["string, 原文直接引用, 支撑上述分析"]
       }
     }
   ]
 }
 
-【注意事项】
-1. 所有字符串使用双引号，数组允许为空但不要使用 null。
-2. title/description/targetUser/keyDifferentiators/painPoints/quotes 必须源于输入内容，不要凭空生成。
-3. 若未识别到产品方向，demands 返回空数组，summary 仍需输出。`;
+# 边界情况处理
+- 内容与产品需求无关（如纯技术讨论/闲聊）→ demands 为空，summary 说明内容性质
+- 痛点模糊或缺乏共识 → 不输出该方向
+- 竞品未提及 → competitors 和 competitorGaps 为空数组`;
 
 /**
- * v2.1 去重分析 Prompt（结构化输出）
+ * 去重分析 Prompt
  */
-export const DEDUP_ANALYSIS_PROMPT = `
-你是一个产品需求分析专家。请分析以下产品方向列表，找出指向**同一产品机会**的相似方向。
+export const DEDUP_ANALYSIS_PROMPT = `# 角色
+你是产品需求分析专家，负责识别指向同一产品机会的重复/相似需求。
 
-【输入】
+# 输入
 {demands}
 
-【判断标准】
-1. 解决同一个核心问题
-2. 目标用户群体相同或高度重叠
-3. 核心差异点有 2 个以上相同
+# 相似性判断（满足任意 2 条即可归为一组）
+1. **问题同源**：解决的核心用户问题本质相同（表述不同但指向同一痛点）
+2. **用户重叠**：目标用户群体相同或有 70%+ 重叠
+3. **方案趋同**：产品形态或解决思路高度相似
+4. **差异点交集**：keyDifferentiators 有 2+ 项语义相近
 
-【输出格式（仅 JSON）】
-- 仅输出一个 JSON 对象，禁止附加解释、Markdown 代码块或注释。
-- 字段：
-  - groups：相似需求的分组数组；每组至少包含 2 个需求。
-    - suggestedName：分组名称，概括共同问题或场景。
-    - demandIds：输入中出现的 ID，按原始顺序排列，不要重复。
-    - reason：简要说明相似性，需提及共同问题/用户/差异点。
-    - commonPainPoints：共同痛点列表，若无法确定则返回 []。
-  - uniqueDemands：未出现在任何分组中的 ID 数组，按输入顺序。
-- 没有相似项时，groups 为 []，uniqueDemands 包含全部 ID。
-示例（请勿添加额外字段）：
+# 分组原则
+- 每组 ≥ 2 个需求，同一需求只能归入一个组
+- 优先合并相似度最高的需求对，再扩展组内成员
+- 存疑时倾向于不合并（避免过度聚合）
+
+# 输出
+仅输出 JSON，禁止 Markdown 代码块、注释或额外文字。
 {
   "groups": [
     {
-      "suggestedName": "示例分组",
-      "demandIds": ["id1", "id2"],
-      "reason": "两者都解决同一核心问题",
-      "commonPainPoints": ["痛点A"]
+      "suggestedName": "string, 分组名称, 概括共同问题/场景",
+      "demandIds": ["string, 需求ID, 按输入顺序, 不重复"],
+      "reason": "string, 相似性依据, 需引用具体字段内容",
+      "commonPainPoints": ["string, 共同痛点, 无法确定则为空数组"]
     }
   ],
-  "uniqueDemands": ["id3"]
+  "uniqueDemands": ["string, 未归组的需求ID, 按输入顺序"]
 }
-`;
+
+# 边界情况
+- 输入 ≤ 1 条需求 → groups 为空，uniqueDemands 包含全部 ID
+- 无相似需求 → groups 为空，uniqueDemands 包含全部 ID
+- 所有需求都相似 → uniqueDemands 为空数组`;
 
 /**
  * 格式化 Prompt（替换占位符）

@@ -10,3 +10,4 @@ export { BatchAnalyzePanel } from "./BatchAnalyzePanel";
 export { DedupResultView } from "./DedupResultView";
 export { DemandGroupCard } from "./DemandGroupCard";
 export { ConfirmProvider, useConfirm } from "./ConfirmProvider";
+export { ActionSheet } from "./ActionSheet";

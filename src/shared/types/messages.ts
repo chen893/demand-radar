@@ -61,6 +61,8 @@ export enum MessageType {
   DEDUP_ANALYZE_START = "DEDUP_ANALYZE_START",
   DEDUP_ANALYZE_COMPLETE = "DEDUP_ANALYZE_COMPLETE",
   DEDUP_CONFIRM = "DEDUP_CONFIRM",
+  DELETE_GROUP = "DELETE_GROUP",
+  DELETE_GROUP_WITH_DEMANDS = "DELETE_GROUP_WITH_DEMANDS",
 }
 
 /**
@@ -140,6 +142,13 @@ export interface BatchAnalyzeProgressPayload {
   completed: number;
   failed: number;
   running: number;
+}
+
+/**
+ * 去重分析请求载荷
+ */
+export interface DedupAnalyzePayload {
+  demandIds: string[];
 }
 
 /**

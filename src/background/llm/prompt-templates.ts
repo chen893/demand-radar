@@ -43,27 +43,6 @@ export const SOLUTION_EXTRACTION_PROMPT = `你是一个产品机会分析专家�
 3. 若未识别到产品方向，demands 返回空数组，summary 仍需输出。`;
 
 /**
- * 需求去重分析 Prompt (P1 功能)
- */
-export const DEDUPLICATION_PROMPT = `你是一个产品需求分析专家。请分析以下产品方向列表，找出指向同一产品机会的相似方向。
-
-【输入】
-{demands}
-
-【输出要求】
-找出相似的需求并分组，对于每组：
-- suggestedName: 分组名称（如「PDF 工具需求」）
-- demandIds: 属于这一组的需求 ID 列表
-- reason: 为什么认为这些是同一方向
-
-对于没有重复的需求，放入 uniqueDemands 数组。
-
-【判断标准】
-- 解决同一个核心问题
-- 目标用户群体相同
-- 核心差异点高度重叠`;
-
-/**
  * v2.1 去重分析 Prompt（结构化输出）
  */
 export const DEDUP_ANALYSIS_PROMPT = `

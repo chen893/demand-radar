@@ -14,6 +14,7 @@ const CONFIG_KEYS = {
   SITE_FILTER: "site_filter",
   ANALYTICS_ENABLED: "analytics_enabled",
   FIRST_LAUNCH_COMPLETED: "first_launch_completed",
+  SYSTEM_PROMPT: "system_prompt",
 } as const;
 
 /**
@@ -140,15 +141,34 @@ export class ConfigRepository {
   }
 
   /**
+   * 获取自定义系统 Prompt
+   */
+  async getSystemPrompt(): Promise<string | undefined> {
+    return this.get<string | undefined>(CONFIG_KEYS.SYSTEM_PROMPT, undefined);
+  }
+
+  /**
+   * 设置自定义系统 Prompt
+   */
+  async setSystemPrompt(prompt: string | undefined): Promise<void> {
+    if (prompt && prompt.trim().length > 0) {
+      await this.set(CONFIG_KEYS.SYSTEM_PROMPT, prompt);
+    } else {
+      await db.config.delete(CONFIG_KEYS.SYSTEM_PROMPT);
+    }
+  }
+
+  /**
    * 获取完整应用配置
    */
   async getAppConfig(): Promise<AppConfig> {
-    const [llm, siteFilter, analyticsEnabled, firstLaunchCompleted] =
+    const [llm, siteFilter, analyticsEnabled, firstLaunchCompleted, systemPrompt] =
       await Promise.all([
         this.getLLMConfig(),
         this.getSiteFilter(),
         this.getAnalyticsEnabled(),
         this.getFirstLaunchCompleted(),
+        this.getSystemPrompt(),
       ]);
 
     return {
@@ -156,6 +176,7 @@ export class ConfigRepository {
       siteFilter,
       analyticsEnabled,
       firstLaunchCompleted,
+      systemPrompt,
     };
   }
 

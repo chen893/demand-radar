@@ -65,6 +65,9 @@ export class MessageHandler {
         case MessageType.UPDATE_CONFIG:
           return await this.handleUpdateConfig(message.payload as LLMConfig);
 
+        case MessageType.UPDATE_SYSTEM_PROMPT:
+          return await this.handleUpdateSystemPrompt(message.payload as string);
+
         // 需求操作
         case MessageType.SAVE_DEMANDS:
           return await this.handleSaveDemands(message.payload as DemandInput[]);
@@ -87,6 +90,9 @@ export class MessageHandler {
         // 提取记录操作
         case MessageType.GET_EXTRACTIONS:
           return await this.handleGetExtractions();
+
+        case MessageType.GET_PENDING_COUNT:
+          return await this.handleGetPendingCount();
 
         case MessageType.GET_EXTRACTION_BY_ID:
           return await this.handleGetExtractionById(message.payload as string);
@@ -219,7 +225,8 @@ export class MessageHandler {
       });
 
       // 5. 调用 LLM 分析
-      const analysisResult = await llmService.analyze(truncatedContent);
+      const systemPrompt = await configRepo.getSystemPrompt();
+      const analysisResult = await llmService.analyze(truncatedContent, systemPrompt);
 
       // 6. 创建提取记录
       const extractionId = generateId();
@@ -390,7 +397,8 @@ export class MessageHandler {
           payload: { taskId, status: "analyzing" },
         });
 
-        const analysisResult = await llmService.analyze(extraction.originalText);
+        const systemPrompt = await configRepo.getSystemPrompt();
+        const analysisResult = await llmService.analyze(extraction.originalText, systemPrompt);
         const demandsWithMeta: AnalysisResultPayload = {
           extractionId: extraction.id,
           summary: analysisResult.summary,
@@ -460,6 +468,12 @@ export class MessageHandler {
       });
 
     await Promise.all(workers);
+
+    this.broadcastToPanel({
+      type: MessageType.BATCH_ANALYZE_COMPLETE,
+      payload: { total: tasks.length, completed, failed },
+    });
+
     return { success: true, data: { total: tasks.length, completed, failed } };
   }
 
@@ -497,6 +511,14 @@ export class MessageHandler {
   ): Promise<MessageResponse> {
     await configRepo.setLLMConfig(llmConfig);
     llmService.setConfig(llmConfig);
+    return { success: true };
+  }
+
+  /**
+   * 更新系统 Prompt
+   */
+  private async handleUpdateSystemPrompt(prompt: string): Promise<MessageResponse> {
+    await configRepo.setSystemPrompt(prompt);
     return { success: true };
   }
 
@@ -614,6 +636,14 @@ export class MessageHandler {
   private async handleGetExtractions(): Promise<MessageResponse> {
     const extractions = await extractionRepo.getAll();
     return { success: true, data: extractions };
+  }
+
+  /**
+   * 获取待处理记录数量
+   */
+  private async handleGetPendingCount(): Promise<MessageResponse> {
+    const pending = await extractionRepo.getPending();
+    return { success: true, data: { count: pending.length } };
   }
 
   /**

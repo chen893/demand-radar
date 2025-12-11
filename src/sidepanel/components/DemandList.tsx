@@ -102,17 +102,6 @@ export function DemandList() {
     setDedupSuggestions((prev) => prev.filter((g) => g.id !== groupId));
   };
 
-  const handleBatchAnalyze = async () => {
-    const resp = await chrome.runtime.sendMessage({
-      type: MessageType.BATCH_ANALYZE_START,
-    });
-    if (!resp?.success) {
-      toast.error(resp?.error || "批量分析启动失败");
-    } else {
-      toast.success(`批量分析已启动，任务数：${resp.data?.total ?? "未知"}`);
-    }
-  };
-
   // 如果选中了需求，显示详情
   if (selectedDemandId) {
     return <DemandDetail />;
@@ -177,12 +166,6 @@ export function DemandList() {
             icon="🧩"
             label="智能去重"
             disabledClass="opacity-50 cursor-not-allowed"
-          />
-          <FilterChip
-            active={false}
-            onClick={handleBatchAnalyze}
-            icon="🚀"
-            label="批量分析"
           />
         </div>
       </div>
@@ -287,10 +270,10 @@ export function DemandList() {
                   onToggleStar={() => toggleStar(demand.id)}
                   onDelete={async () => {
                     const isConfirmed = await confirm({
-                        title: "删除洞察",
-                        message: "确定删除这个产品方向？",
-                        confirmText: "删除",
-                        isDestructive: true
+                      title: "删除洞察",
+                      message: "确定删除这个产品方向？",
+                      confirmText: "删除",
+                      isDestructive: true,
                     });
                     if (isConfirmed) {
                       deleteDemand(demand.id);

@@ -41,6 +41,7 @@ export interface AppConfig {
   siteFilter: SiteFilterConfig;
   analyticsEnabled: boolean;
   firstLaunchCompleted: boolean;
+  systemPrompt?: string; // 自定义系统 Prompt
 }
 
 /**

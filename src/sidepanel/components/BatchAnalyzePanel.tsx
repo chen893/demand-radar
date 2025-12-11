@@ -2,54 +2,96 @@ import React from "react";
 
 interface BatchAnalyzePanelProps {
   pendingCount?: number;
+  status?: "idle" | "running";
+  progress?: {
+    total: number;
+    completed: number;
+    failed: number;
+  } | null;
   onStart?: () => void;
   onClear?: () => void;
 }
 
 export function BatchAnalyzePanel({
   pendingCount = 0,
+  status = "idle",
+  progress,
   onStart,
-  onClear,
 }: BatchAnalyzePanelProps) {
-  return (
-    <div className="glass-card p-4 rounded-xl space-y-3 group hover:border-brand-200 transition-colors">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-sm shadow-sm group-hover:scale-110 transition-transform">
-            {pendingCount}
-          </div>
-          <div className="flex flex-col">
-            <span className="font-bold text-slate-800 text-sm">批量队列</span>
-            <span className="text-[10px] text-slate-500 font-medium">
-              等待分析中
+  // Empty State
+  if (pendingCount === 0 && status === "idle") {
+    return (
+      <div className="absolute bottom-4 left-4 right-4 z-40 animate-slide-up">
+        <div className="glass-card !bg-slate-100/80 !border-slate-200/50 p-2 pl-4 pr-4 rounded-full flex items-center justify-between backdrop-blur-sm">
+          <div className="flex items-center gap-3 opacity-50">
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-300 text-white text-xs font-bold">
+              0
+            </div>
+            <span className="text-sm font-medium text-slate-500">
+              暂无待处理项
             </span>
           </div>
         </div>
+      </div>
+    );
+  }
 
-        <div className="flex items-center gap-2">
-          {pendingCount > 0 && (
-            <button
-              className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 hover:bg-slate-100 rounded transition-colors"
-              onClick={onClear}
-            >
-              清除
-            </button>
-          )}
-          <button
-            className="px-4 py-1.5 rounded-lg bg-brand-600 text-white text-xs font-bold shadow-md shadow-brand-600/20 hover:bg-brand-700 hover:shadow-brand-600/30 transition-all disabled:opacity-50 disabled:shadow-none"
-            disabled={pendingCount === 0}
-            onClick={onStart}
-          >
-            开始执行
-          </button>
+  // Processing State
+  if (status === "running") {
+    const total = progress?.total || 0;
+    const completed = (progress?.completed || 0) + (progress?.failed || 0);
+    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+    return (
+      <div className="absolute bottom-4 left-4 right-4 z-40 animate-slide-up">
+        <div className="glass-card !bg-slate-900/95 !border-slate-700/50 p-3 rounded-2xl shadow-2xl backdrop-blur-xl relative overflow-hidden">
+           {/* Progress Bar Background */}
+           <div 
+             className="absolute bottom-0 left-0 h-1 bg-brand-500 transition-all duration-300"
+             style={{ width: `${percentage}%` }}
+           />
+           
+           <div className="flex items-center justify-between mb-1">
+             <div className="flex items-center gap-2">
+               <div className="w-2 h-2 rounded-full bg-brand-400 animate-pulse" />
+               <span className="text-xs font-bold text-slate-200">
+                 正在批量分析...
+               </span>
+             </div>
+             <span className="text-xs font-mono text-slate-400">
+               {completed}/{total}
+             </span>
+           </div>
+           
+           <div className="text-[10px] text-slate-500 pl-4">
+              请勿关闭侧边栏
+           </div>
         </div>
       </div>
+    );
+  }
 
-      {pendingCount > 0 && (
-        <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-          <div className="h-full bg-brand-500/50 w-full animate-pulse-slow origin-left" />
+  // Ready State
+  return (
+    <div className="absolute bottom-4 left-4 right-4 z-40 animate-slide-up">
+      <div className="glass-card !bg-slate-900/90 !border-slate-700/50 p-2 pl-4 pr-2 rounded-full shadow-2xl flex items-center justify-between backdrop-blur-xl group hover:scale-[1.02] transition-transform duration-300">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-500 text-white text-xs font-bold animate-pulse-slow">
+            {pendingCount}
+          </div>
+          <span className="text-sm font-medium text-slate-200">
+            待分析内容
+          </span>
         </div>
-      )}
+
+        <button
+          onClick={onStart}
+          className="px-4 py-1.5 rounded-full bg-white text-slate-900 text-xs font-bold hover:bg-brand-50 hover:text-brand-600 transition-all shadow-sm active:scale-95 flex items-center gap-1"
+        >
+          <span>🚀</span>
+          立即分析
+        </button>
+      </div>
     </div>
   );
 }

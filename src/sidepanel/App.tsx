@@ -6,6 +6,7 @@ import React, { useEffect, useState } from "react";
 import { Toaster } from "react-hot-toast";
 import {
   AnalysisView,
+  BatchAnalyzePanel,
   ConfirmProvider,
   DemandList,
   SettingsView,
@@ -25,18 +26,45 @@ export default function App() {
     setTaskResult,
     setTaskError,
     upsertTask,
+    pendingCount,
+    fetchPendingCount,
+    batchStatus,
+    batchProgress,
+    setBatchStatus,
+    setBatchProgress,
+    tasks,
+    activeTaskId,
   } = useAnalysisStore();
   const { fetchConfig, isConfigured } = useConfigStore();
+
+  // Check for conflicts with AnalysisView's Save button
+  const activeTask = tasks.find((t) => t.id === activeTaskId);
+  const isAnalysisCompleted = 
+    currentView === "analysis" && 
+    activeTask?.status === "completed" && 
+    (activeTask.result?.demands?.length ?? 0) > 0;
 
   // 初始化
   useEffect(() => {
     fetchConfig();
+    fetchPendingCount();
     getCurrentPageInfo();
 
     const handleMessage = (message: { type: string; payload?: unknown }) => {
       console.log("[Side Panel] Received message:", message.type);
 
       switch (message.type) {
+        case MessageType.BATCH_ANALYZE_PROGRESS:
+          setBatchProgress(message.payload as any);
+          break;
+        case MessageType.BATCH_ANALYZE_COMPLETE:
+          setBatchStatus("idle");
+          setBatchProgress(null);
+          fetchPendingCount();
+          break;
+        case MessageType.QUICK_SAVE_COMPLETE:
+          fetchPendingCount();
+          break;
         case MessageType.PAGE_INFO_UPDATED:
           setCurrentPage(message.payload as PageInfoPayload);
           break;
@@ -190,6 +218,13 @@ export default function App() {
     });
   };
 
+  const handleStartBatchAnalyze = () => {
+    setBatchStatus("running");
+    chrome.runtime.sendMessage({
+      type: MessageType.BATCH_ANALYZE_START,
+    });
+  };
+
   return (
     <ConfirmProvider>
       <div className="w-full h-screen flex flex-col bg-surface-50 relative text-slate-900 font-sans selection:bg-brand-100/50 overflow-hidden">
@@ -257,6 +292,16 @@ export default function App() {
           {currentView === "library" && <DemandList />}
           {currentView === "settings" && <SettingsView />}
         </div>
+        
+        {/* Batch Action Floating Island - Hide if Analysis View has a sticky button */}
+        {!isAnalysisCompleted && (
+          <BatchAnalyzePanel 
+            pendingCount={pendingCount} 
+            status={batchStatus}
+            progress={batchProgress}
+            onStart={handleStartBatchAnalyze} 
+          />
+        )}
       </main>
 
       {/* Bottom Navigation */}

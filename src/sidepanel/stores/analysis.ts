@@ -17,6 +17,13 @@ interface AnalysisState {
   // 任务队列
   tasks: AnalysisTask[];
   activeTaskId: string | null;
+  pendingCount: number;
+  batchStatus: "idle" | "running";
+  batchProgress: {
+    total: number;
+    completed: number;
+    failed: number;
+  } | null;
 
   // UI 状态
   indicatorExpanded: boolean;
@@ -44,6 +51,12 @@ interface AnalysisState {
   getRunningTasks: () => AnalysisTask[];
   getTaskForUrl: (url: string) => AnalysisTask | undefined;
   toggleIndicator: () => void;
+  
+  // 队列相关
+  fetchPendingCount: () => Promise<void>;
+  setPendingCount: (count: number) => void;
+  setBatchStatus: (status: "idle" | "running") => void;
+  setBatchProgress: (progress: { total: number; completed: number; failed: number } | null) => void;
 
   // 需求选择
   toggleDemandSelection: (id: string) => void;
@@ -55,6 +68,9 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   currentPage: null,
   tasks: [],
   activeTaskId: null,
+  pendingCount: 0,
+  batchStatus: "idle",
+  batchProgress: null,
   indicatorExpanded: false,
   selectedDemandIds: [],
 
@@ -300,5 +316,30 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
 
   toggleIndicator: () => {
     set((state) => ({ indicatorExpanded: !state.indicatorExpanded }));
+  },
+
+  fetchPendingCount: async () => {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: "GET_PENDING_COUNT",
+      });
+      if (response.success && response.data) {
+        set({ pendingCount: response.data.count });
+      }
+    } catch (error) {
+      console.error("Failed to fetch pending count:", error);
+    }
+  },
+
+  setPendingCount: (count) => {
+    set({ pendingCount: count });
+  },
+
+  setBatchStatus: (status) => {
+    set({ batchStatus: status });
+  },
+
+  setBatchProgress: (progress) => {
+    set({ batchProgress: progress });
   },
 }));

@@ -3,7 +3,8 @@
     "allow": [
       "Bash(cat:*)",
       "Bash(npm run type-check:*)",
-      "mcp__docs-langchain__SearchDocsByLangChain"
+      "mcp__docs-langchain__SearchDocsByLangChain",
+      "Bash(pnpm run type-check:*)"
     ],
     "deny": [],
     "ask": []

@@ -97,7 +97,7 @@ export class LLMService {
   /**
    * 分析内容并提取产品方向
    */
-  async analyze(content: string): Promise<AnalysisResult> {
+  async analyze(content: string, systemPrompt?: string): Promise<AnalysisResult> {
     if (!this.config) {
       throw new LLMServiceError(
         "LLM not configured",
@@ -115,7 +115,12 @@ export class LLMService {
       });
 
       // 格式化 Prompt
-      const prompt = formatPrompt(SOLUTION_EXTRACTION_PROMPT, { content });
+      let template = SOLUTION_EXTRACTION_PROMPT;
+      if (systemPrompt && systemPrompt.trim().length > 0) {
+        template += `\n\n【额外系统指令】\n${systemPrompt}`;
+      }
+      
+      const prompt = formatPrompt(template, { content });
 
       // 调用 LLM
       const result = await modelWithStructure.invoke(prompt);

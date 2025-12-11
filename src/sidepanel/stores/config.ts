@@ -12,6 +12,7 @@ import { PROVIDER_PRESETS } from "@/shared/constants";
 interface ConfigState {
   // 配置状态
   llmConfig: LLMConfig | null;
+  systemPrompt: string; // 自定义系统 Prompt
   siteWhitelist: string[];
   siteBlacklist: string[];
   isConfigured: boolean;
@@ -28,6 +29,7 @@ interface ConfigState {
   // 操作
   fetchConfig: () => Promise<void>;
   setLLMConfig: (config: LLMConfig) => Promise<void>;
+  setSystemPrompt: (prompt: string) => Promise<void>;
   testConnection: (config: LLMConfig) => Promise<boolean>;
   fetchStorageUsage: () => Promise<void>;
   addToWhitelist: (site: string) => Promise<void>;
@@ -39,6 +41,7 @@ interface ConfigState {
 export const useConfigStore = create<ConfigState>((set, get) => ({
   // 初始状态
   llmConfig: null,
+  systemPrompt: "",
   siteWhitelist: [],
   siteBlacklist: [],
   isConfigured: false,
@@ -61,6 +64,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
         const config = response.data as AppConfig;
         set({
           llmConfig: config.llm,
+          systemPrompt: config.systemPrompt || "",
           siteWhitelist: config.siteFilter.whitelist,
           siteBlacklist: config.siteFilter.blacklist,
           isConfigured: !!config.llm?.apiKey,
@@ -70,6 +74,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
         // 无配置，使用默认值
         set({
           llmConfig: null,
+          systemPrompt: "",
           siteWhitelist: ["*.reddit.com", "*.zhihu.com"],
           siteBlacklist: ["*.bank.*", "mail.*", "*.gov.*"],
           isConfigured: false,
@@ -103,6 +108,26 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "保存配置失败",
+      });
+    }
+  },
+  
+  // 设置系统 Prompt
+  setSystemPrompt: async (prompt) => {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: MessageType.UPDATE_SYSTEM_PROMPT,
+        payload: prompt,
+      });
+
+      if (response.success) {
+        set({ systemPrompt: prompt });
+      } else {
+        set({ error: response.error || "保存 Prompt 失败" });
+      }
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : "保存 Prompt 失败",
       });
     }
   },

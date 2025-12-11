@@ -11,29 +11,36 @@ export const SOLUTION_EXTRACTION_PROMPT = `你是一个产品机会分析专家�
 【输入内容】
 {content}
 
-【输出要求】
-请分析内容并提取产品机会。对于每个识别到的产品方向，需要提供：
+【任务】
+- 提炼不超过 3 个产品方向，优先输出价值最高的方向。
+- 每个方向都要有可验证的依据，不要虚构或外推。
 
-1. 解决方案（solution）：
-   - title: 产品名称（一句话描述）
-   - description: 详细描述（2-3句话，说明是什么产品）
-   - targetUser: 目标用户（谁会用这个产品）
-   - keyDifferentiators: 核心差异点（3-5个，说明与现有方案的不同）
-
-2. 验证依据（validation）：
-   - painPoints: 用户痛点（从原文中识别的痛点）
-   - competitors: 竞品名称（用户提到的现有工具）
-   - competitorGaps: 竞品不足（现有工具的问题）
-   - quotes: 原文证据（直接引用用户原话，必须是原文中的内容）
-
-3. 摘要（summary）：页面内容摘要（100-200字）
+【输出格式（仅 JSON）】
+请只输出一个 JSON 对象，不要添加 Markdown 代码块或额外解释，字段定义如下：
+{
+  "summary": "页面内容摘要，100-200 字，覆盖主要讨论点",
+  "demands": [
+    {
+      "solution": {
+        "title": "产品名称（1 句话）",
+        "description": "详细描述，2-3 句话",
+        "targetUser": "目标用户",
+        "keyDifferentiators": ["差异点1", "差异点2"]
+      },
+      "validation": {
+        "painPoints": ["用户痛点，引用原文语境"],
+        "competitors": ["竞品名称，如无填空数组"],
+        "competitorGaps": ["竞品不足或缺口"],
+        "quotes": ["原文直接引用，逐条列出，勿编造"]
+      }
+    }
+  ]
+}
 
 【注意事项】
-1. keyDifferentiators 应该是具体的、可执行的差异点
-2. quotes 必须是原文中的实际内容，不要编造
-3. 如果内容中没有明显的产品机会，返回空数组
-4. 最多输出 3 个产品方向，优先输出最有价值的
-5. 使用中文输出`;
+1. 所有字符串使用双引号，数组允许为空但不要使用 null。
+2. title/description/targetUser/keyDifferentiators/painPoints/quotes 必须源于输入内容，不要凭空生成。
+3. 若未识别到产品方向，demands 返回空数组，summary 仍需输出。`;
 
 /**
  * 需求去重分析 Prompt (P1 功能)
@@ -70,18 +77,27 @@ export const DEDUP_ANALYSIS_PROMPT = `
 2. 目标用户群体相同或高度重叠
 3. 核心差异点有 2 个以上相同
 
-【输出要求】
-以 JSON 输出：
+【输出格式（仅 JSON）】
+- 仅输出一个 JSON 对象，禁止附加解释、Markdown 代码块或注释。
+- 字段：
+  - groups：相似需求的分组数组；每组至少包含 2 个需求。
+    - suggestedName：分组名称，概括共同问题或场景。
+    - demandIds：输入中出现的 ID，按原始顺序排列，不要重复。
+    - reason：简要说明相似性，需提及共同问题/用户/差异点。
+    - commonPainPoints：共同痛点列表，若无法确定则返回 []。
+  - uniqueDemands：未出现在任何分组中的 ID 数组，按输入顺序。
+- 没有相似项时，groups 为 []，uniqueDemands 包含全部 ID。
+示例（请勿添加额外字段）：
 {
   "groups": [
     {
-      "suggestedName": "分组名称",
+      "suggestedName": "示例分组",
       "demandIds": ["id1", "id2"],
-      "reason": "归组理由",
-      "commonPainPoints": ["共同痛点1", "共同痛点2"]
+      "reason": "两者都解决同一核心问题",
+      "commonPainPoints": ["痛点A"]
     }
   ],
-  "uniqueDemands": ["id4", "id5"]
+  "uniqueDemands": ["id3"]
 }
 `;
 

@@ -4,8 +4,10 @@
  */
 
 import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import { useDemandsStore, useFilteredDemands } from "../stores";
 import { DemandDetail } from "./DemandDetail";
+import { useConfirm } from "./ConfirmProvider";
 import type { Demand } from "@/shared/types/demand";
 import type { DemandGroup } from "@/shared/types/demand-group";
 import { MessageType } from "@/shared/types/messages";
@@ -31,6 +33,7 @@ export function DemandList() {
     clearError,
     groups,
   } = useDemandsStore();
+  const { confirm } = useConfirm();
 
   const demands = useFilteredDemands();
   const [searchInput, setSearchInput] = useState(searchQuery);
@@ -70,7 +73,7 @@ export function DemandList() {
       );
       setDedupSuggestions(groups);
     } else {
-      alert(response?.error || "去重分析失败");
+      toast.error(response?.error || "去重分析失败");
     }
   };
 
@@ -89,8 +92,9 @@ export function DemandList() {
       setDedupSuggestions((prev) => prev.filter((g) => g.id !== groupId));
       fetchDemands();
       fetchGroups();
+      toast.success("合并成功");
     } else {
-      alert(resp?.error || "合并失败");
+      toast.error(resp?.error || "合并失败");
     }
   };
 
@@ -103,9 +107,9 @@ export function DemandList() {
       type: MessageType.BATCH_ANALYZE_START,
     });
     if (!resp?.success) {
-      alert(resp?.error || "批量分析启动失败");
+      toast.error(resp?.error || "批量分析启动失败");
     } else {
-      alert(`批量分析已启动，任务数：${resp.data?.total ?? "未知"}`);
+      toast.success(`批量分析已启动，任务数：${resp.data?.total ?? "未知"}`);
     }
   };
 
@@ -281,9 +285,16 @@ export function DemandList() {
                   demand={demand}
                   onClick={() => selectDemand(demand.id)}
                   onToggleStar={() => toggleStar(demand.id)}
-                  onDelete={() => {
-                    if (confirm("确定删除这个产品方向？")) {
+                  onDelete={async () => {
+                    const isConfirmed = await confirm({
+                        title: "删除洞察",
+                        message: "确定删除这个产品方向？",
+                        confirmText: "删除",
+                        isDestructive: true
+                    });
+                    if (isConfirmed) {
                       deleteDemand(demand.id);
+                      toast.success("已删除");
                     }
                   }}
                 />

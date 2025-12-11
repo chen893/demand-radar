@@ -4,7 +4,9 @@
  */
 
 import React, { useState } from "react";
+import toast from "react-hot-toast";
 import { useDemandsStore } from "../stores";
+import { useConfirm } from "./ConfirmProvider";
 import { formatRelativeTime } from "@/shared/utils/text-utils";
 
 export function DemandDetail() {
@@ -18,6 +20,7 @@ export function DemandDetail() {
     removeTag,
     deleteDemand,
   } = useDemandsStore();
+  const { confirm } = useConfirm();
 
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState(selectedDemand?.notes || "");
@@ -46,9 +49,17 @@ export function DemandDetail() {
   };
 
   const handleDelete = async () => {
-    if (confirm("确定要删除这个洞察吗？此操作不可恢复。")) {
+    const isConfirmed = await confirm({
+      title: "删除洞察",
+      message: "确定要删除这个洞察吗？此操作不可恢复。",
+      confirmText: "删除",
+      isDestructive: true,
+    });
+    
+    if (isConfirmed) {
       await deleteDemand(demand.id);
       selectDemand(null);
+      toast.success("已删除");
     }
   };
 

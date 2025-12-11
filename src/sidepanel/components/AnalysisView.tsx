@@ -4,6 +4,7 @@
  */
 
 import React from "react";
+import toast from "react-hot-toast";
 import { useAnalysisStore, useConfigStore } from "../stores";
 import { DemandCard } from "./DemandCard";
 import { MessageType } from "@/shared/types/messages";
@@ -45,7 +46,7 @@ export function AnalysisView() {
 
   const handleQuickSave = async () => {
     if (!currentPage?.canAnalyze) {
-      alert("当前页面不支持加入批量分析");
+      toast.error("当前页面不支持加入批量分析");
       return;
     }
 
@@ -55,23 +56,23 @@ export function AnalysisView() {
       });
 
       if (response?.success) {
-        // success toast could go here
+        toast.success("已加入批量分析队列");
       } else {
-        alert(response?.error || "加入批量分析失败");
+        toast.error(response?.error || "加入批量分析失败");
       }
     } catch (error) {
-      alert(error instanceof Error ? error.message : "加入批量分析失败");
+      toast.error(error instanceof Error ? error.message : "加入批量分析失败");
     }
   };
 
   const handleAnalyze = async () => {
     if (!isConfigured) {
-      alert("请先在设置中配置 API Key");
+      toast.error("请先在设置中配置 API Key");
       return;
     }
 
     if (!currentPage?.url) {
-      alert("无法获取当前页面信息");
+      toast.error("无法获取当前页面信息");
       return;
     }
 
@@ -126,12 +127,12 @@ export function AnalysisView() {
       });
 
       if (response.success) {
-        alert(`已保存 ${response.data.savedCount} 个产品方向`);
+        toast.success(`已保存 ${response.data.savedCount} 个产品方向`);
       } else {
-        alert(response.error || "保存失败");
+        toast.error(response.error || "保存失败");
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "保存失败");
+      toast.error(err instanceof Error ? err.message : "保存失败");
     }
   };
 

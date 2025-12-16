@@ -1,0 +1,79 @@
+# 自动发布浏览器插件到 GitHub Releases
+# 触发条件：推送 v* 格式的标签（如 v1.0.0）
+
+name: Release Extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run type check
+        run: pnpm type-check
+
+      - name: Run tests
+        run: pnpm test --run
+
+      - name: Build extension
+        run: pnpm build
+
+      - name: Package extension
+        run: pnpm package
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Rename package file
+        run: |
+          mv build/chrome-mv3-prod.zip build/demand-radar-chrome-${{ steps.version.outputs.VERSION }}.zip
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Demand Radar ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## Demand Radar ${{ steps.version.outputs.VERSION }}
+
+            ### 安装方法
+
+            1. 下载 `demand-radar-chrome-${{ steps.version.outputs.VERSION }}.zip`
+            2. 解压到本地任意目录
+            3. 打开 Chrome 浏览器，访问 `chrome://extensions/`
+            4. 开启右上角的「开发者模式」
+            5. 点击「加载已解压的扩展程序」
+            6. 选择解压后的文件夹
+
+            ### 更新日志
+
+            查看完整更新内容请参阅 [CHANGELOG](https://github.com/${{ github.repository }}/blob/master/CHANGELOG.md)
+          files: |
+            build/demand-radar-chrome-${{ steps.version.outputs.VERSION }}.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true

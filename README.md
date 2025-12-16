@@ -37,23 +37,35 @@ Demand Radar 是一个 Chrome 浏览器扩展，帮助产品经理、创业者�
 | LLM 调用 | LangChain.js |
 | 内容提取 | @mozilla/readability + Turndown |
 
-## 快速开始
+## 安装
 
-### 安装依赖
+### 方式一：从 Releases 下载（推荐）
+
+1. 前往 [Releases 页面](https://github.com/chen893/demand-radar/releases/latest) 下载最新版本的 `demand-radar-chrome-vX.X.X.zip`
+2. 解压 zip 文件到本地任意目录
+3. 打开 Chrome 浏览器，访问 `chrome://extensions/`
+4. 开启右上角的「开发者模式」
+5. 点击「加载已解压的扩展程序」
+6. 选择解压后的文件夹
+7. 完成！点击工具栏的 📡 图标即可使用
+
+### 方式二：从源码构建
+
+#### 安装依赖
 
 ```bash
 # 克隆项目
-git clone <repository-url>
+git clone https://github.com/chen893/demand-radar.git
 cd demand-radar
 
 # 安装依赖
-npm install
+pnpm install
 ```
 
-### 开发模式
+#### 开发模式
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 然后在 Chrome 中：
@@ -62,11 +74,11 @@ npm run dev
 3. 点击「加载已解压的扩展程序」
 4. 选择 `build/chrome-mv3-dev` 目录
 
-### 生产构建
+#### 生产构建
 
 ```bash
-npm run build
-npm run package  # 生成 .zip 文件
+pnpm build
+pnpm package  # 生成 .zip 文件
 ```
 
 ## 项目结构
@@ -191,12 +203,12 @@ src/
 ### 命令
 
 ```bash
-npm run dev          # 开发模式
-npm run build        # 生产构建
-npm run package      # 打包 .zip
-npm run test         # 运行测试
-npm run lint         # 代码检查
-npm run type-check   # 类型检查
+pnpm dev          # 开发模式
+pnpm build        # 生产构建
+pnpm package      # 打包 .zip
+pnpm test         # 运行测试
+pnpm lint         # 代码检查
+pnpm type-check   # 类型检查
 ```
 
 ### 添加新平台适配器
